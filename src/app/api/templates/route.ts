@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { createTemplateSchema, updateTemplateSchema, validateRequestBody } from '@/lib/validation';
 
 // GET /api/templates - Get all templates
 export async function GET(request: NextRequest) {
@@ -25,32 +26,19 @@ export async function GET(request: NextRequest) {
 // POST /api/templates - Create a new template
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { name, type, content, variables, voiceSpeed, voicePitch } = body;
-
-    // Validation
-    if (!name || !type || !content) {
-      return NextResponse.json(
-        { error: 'name, type, and content are required' },
-        { status: 400 }
-      );
+    // Validate request body
+    const validation = await validateRequestBody(request, createTemplateSchema);
+    if (!validation.success) {
+      return NextResponse.json(validation.error, { status: 400 });
     }
 
-    if (!['SMS', 'VOICE'].includes(type)) {
-      return NextResponse.json(
-        { error: 'type must be either SMS or VOICE' },
-        { status: 400 }
-      );
-    }
+    const { name, type, content } = validation.data;
 
     const template = await db.template.create({
       data: {
         name,
         type,
         content,
-        variables: variables ? JSON.stringify(variables) : null,
-        voiceSpeed: type === 'VOICE' ? voiceSpeed || 1.0 : null,
-        voicePitch: type === 'VOICE' ? voicePitch || 0.0 : null,
       },
     });
 
@@ -67,23 +55,13 @@ export async function POST(request: NextRequest) {
 // PUT /api/templates - Update an existing template
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { id, name, type, content, variables, voiceSpeed, voicePitch } = body;
-
-    // Validation
-    if (!id || !name || !type || !content) {
-      return NextResponse.json(
-        { error: 'id, name, type, and content are required' },
-        { status: 400 }
-      );
+    // Validate request body
+    const validation = await validateRequestBody(request, updateTemplateSchema);
+    if (!validation.success) {
+      return NextResponse.json(validation.error, { status: 400 });
     }
 
-    if (!['SMS', 'VOICE'].includes(type)) {
-      return NextResponse.json(
-        { error: 'type must be either SMS or VOICE' },
-        { status: 400 }
-      );
-    }
+    const { id, name, type, content } = validation.data;
 
     // Check if template exists
     const existingTemplate = await db.template.findUnique({
@@ -103,9 +81,6 @@ export async function PUT(request: NextRequest) {
         name,
         type,
         content,
-        variables: variables ? JSON.stringify(variables) : null,
-        voiceSpeed: type === 'VOICE' ? voiceSpeed || 1.0 : null,
-        voicePitch: type === 'VOICE' ? voicePitch || 0.0 : null,
       },
     });
 

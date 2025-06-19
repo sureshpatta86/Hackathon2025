@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input, Select, Textarea } from '@/components/ui/form';
 import { useNotification } from '@/components/ui/notification';
 import { getAvailableTemplateVariables } from '@/lib/templateVariables';
+import { ValidatedForm, ValidatedInput, ValidatedSelect, ValidatedTextarea } from '@/components/ui/validation';
+import { useFormValidation } from '@/hooks/useFormValidation';
+import { createPatientSchema, updatePatientSchema, createTemplateSchema, updateTemplateSchema, sendCommunicationSchema } from '@/lib/validation';
 import { MessageSquare, Phone, Users, Send, Plus, BarChart3, Clock, TrendingUp, AlertTriangle, CheckCircle, XCircle, Calendar, Settings, Info, Edit2, Trash2, Save, X } from 'lucide-react';
 
 interface Patient {
@@ -117,6 +120,13 @@ export default function Dashboard() {
     twilioPhoneNumber: string | null;
   } | null>(null);
   const { addNotification } = useNotification();
+
+  // Validation hooks
+  const newPatientValidation = useFormValidation(createPatientSchema);
+  const editPatientValidation = useFormValidation(updatePatientSchema);
+  const newTemplateValidation = useFormValidation(createTemplateSchema);
+  const editTemplateValidation = useFormValidation(updateTemplateSchema);
+  const sendMessageValidation = useFormValidation(sendCommunicationSchema);
 
   // Form states
   const [selectedPatient, setSelectedPatient] = useState('');
@@ -285,8 +295,10 @@ export default function Dashboard() {
   };
 
   const handleAddPatient = async () => {
-    if (!newPatient.firstName || !newPatient.lastName || !newPatient.phoneNumber) {
-      addNotification('error', 'Please fill in all required fields');
+    const validation = newPatientValidation.validate(newPatient);
+    
+    if (!validation.isValid) {
+      addNotification('error', 'Please fix the validation errors below');
       return;
     }
 
@@ -295,7 +307,7 @@ export default function Dashboard() {
       const response = await fetch('/api/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newPatient),
+        body: JSON.stringify(validation.data),
       });
 
       if (response.ok) {
@@ -779,73 +791,97 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">First Name</label>
-                      <Input
+                  <ValidatedForm 
+                    errors={newPatientValidation.errors}
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleAddPatient();
+                    }}
+                    isLoading={addingPatient}
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <ValidatedInput
+                        label="First Name"
+                        name="firstName"
                         value={newPatient.firstName}
-                        onChange={(e) => setNewPatient({ ...newPatient, firstName: e.target.value })}
+                        onChange={(value) => {
+                          setNewPatient({ ...newPatient, firstName: value });
+                          newPatientValidation.clearFieldError('firstName');
+                        }}
                         placeholder="Enter first name"
+                        required
+                        error={newPatientValidation.errors.firstName}
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Last Name</label>
-                      <Input
+                      <ValidatedInput
+                        label="Last Name"
+                        name="lastName"
                         value={newPatient.lastName}
-                        onChange={(e) => setNewPatient({ ...newPatient, lastName: e.target.value })}
+                        onChange={(value) => {
+                          setNewPatient({ ...newPatient, lastName: value });
+                          newPatientValidation.clearFieldError('lastName');
+                        }}
                         placeholder="Enter last name"
+                        required
+                        error={newPatientValidation.errors.lastName}
                       />
                     </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                      <Input
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <ValidatedInput
+                        label="Phone Number"
+                        name="phoneNumber"
                         value={newPatient.phoneNumber}
-                        onChange={(e) => setNewPatient({ ...newPatient, phoneNumber: e.target.value })}
+                        onChange={(value) => {
+                          setNewPatient({ ...newPatient, phoneNumber: value });
+                          newPatientValidation.clearFieldError('phoneNumber');
+                        }}
                         placeholder="+1234567890"
+                        required
+                        error={newPatientValidation.errors.phoneNumber}
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Email (Optional)</label>
-                      <Input
+                      <ValidatedInput
+                        label="Email"
+                        name="email"
                         type="email"
                         value={newPatient.email}
-                        onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
+                        onChange={(value) => {
+                          setNewPatient({ ...newPatient, email: value });
+                          newPatientValidation.clearFieldError('email');
+                        }}
                         placeholder="email@example.com"
+                        error={newPatientValidation.errors.email}
                       />
                     </div>
-                  </div>
 
-                  <div className="flex space-x-4">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={newPatient.smsEnabled}
-                        onChange={(e) => setNewPatient({ ...newPatient, smsEnabled: e.target.checked })}
-                        className="rounded"
-                      />
-                      <span className="text-sm text-gray-700">Enable SMS</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={newPatient.voiceEnabled}
-                        onChange={(e) => setNewPatient({ ...newPatient, voiceEnabled: e.target.checked })}
-                        className="rounded"
-                      />
-                      <span className="text-sm text-gray-700">Enable Voice Calls</span>
-                    </label>
-                  </div>
+                    <div className="flex space-x-4">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={newPatient.smsEnabled}
+                          onChange={(e) => setNewPatient({ ...newPatient, smsEnabled: e.target.checked })}
+                          className="rounded"
+                        />
+                        <span className="text-sm text-gray-700">Enable SMS</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={newPatient.voiceEnabled}
+                          onChange={(e) => setNewPatient({ ...newPatient, voiceEnabled: e.target.checked })}
+                          className="rounded"
+                        />
+                        <span className="text-sm text-gray-700">Enable Voice Calls</span>
+                      </label>
+                    </div>
 
-                  <Button
-                    onClick={handleAddPatient}
-                    disabled={addingPatient}
-                    variant="primary"
-                  >
-                    {addingPatient ? 'Adding...' : 'Add Patient'}
-                  </Button>
+                    <Button
+                      type="submit"
+                      disabled={addingPatient}
+                      variant="primary"
+                    >
+                      {addingPatient ? 'Adding...' : 'Add Patient'}
+                    </Button>
+                  </ValidatedForm>
                 </CardContent>
               </Card>
 

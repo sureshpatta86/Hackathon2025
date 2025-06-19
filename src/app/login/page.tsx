@@ -8,6 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/form';
 import Logo from '@/components/ui/logo';
 import { Lock, User } from 'lucide-react';
+import { loginSchema } from '@/lib/validation';
+import { z } from 'zod';
+
+interface ValidationErrors {
+  username?: string;
+  password?: string;
+}
 
 export default function LoginPage() {
   const [credentials, setCredentials] = useState({
@@ -16,10 +23,44 @@ export default function LoginPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const router = useRouter();
+
+  const validateForm = () => {
+    try {
+      loginSchema.parse(credentials);
+      setValidationErrors({});
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errors: ValidationErrors = {};
+        error.errors.forEach((err) => {
+          const field = err.path[0] as keyof ValidationErrors;
+          errors[field] = err.message;
+        });
+        setValidationErrors(errors);
+      }
+      return false;
+    }
+  };
+
+  const handleInputChange = (field: 'username' | 'password', value: string) => {
+    setCredentials({ ...credentials, [field]: value });
+    // Clear validation error for this field
+    if (validationErrors[field]) {
+      setValidationErrors({ ...validationErrors, [field]: undefined });
+    }
+    // Clear general error
+    if (error) setError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
@@ -87,12 +128,15 @@ export default function LoginPage() {
                   <Input
                     type="text"
                     value={credentials.username}
-                    onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
+                    onChange={(e) => handleInputChange('username', e.target.value)}
                     placeholder="Enter your username"
                     required
-                    className="w-full"
+                    className={`w-full ${validationErrors.username ? 'border-red-500' : ''}`}
                     autoComplete="username"
                   />
+                  {validationErrors.username && (
+                    <p className="text-sm text-red-600">{validationErrors.username}</p>
+                  )}
                 </div>
 
                 {/* Password Field */}
@@ -104,12 +148,15 @@ export default function LoginPage() {
                   <Input
                     type="password"
                     value={credentials.password}
-                    onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
                     placeholder="Enter your password"
                     required
-                    className="w-full"
+                    className={`w-full ${validationErrors.password ? 'border-red-500' : ''}`}
                     autoComplete="current-password"
                   />
+                  {validationErrors.password && (
+                    <p className="text-sm text-red-600">{validationErrors.password}</p>
+                  )}
                 </div>
 
                 {/* Error Message */}

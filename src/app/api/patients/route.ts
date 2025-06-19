@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { formatPhoneNumber, isValidPhoneNumber } from '@/lib/twilio';
+import { createPatientSchema, updatePatientSchema, validateRequestBody } from '@/lib/validation';
 
 // GET /api/patients - Get all patients
 export async function GET() {
@@ -38,20 +39,21 @@ export async function GET() {
 // POST /api/patients - Create a new patient
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { firstName, lastName, phoneNumber, email, dateOfBirth, smsEnabled, voiceEnabled, medicalNotes } = body;
-
-    // Validation
-    if (!firstName || !lastName || !phoneNumber) {
-      return NextResponse.json(
-        { error: 'firstName, lastName, and phoneNumber are required' },
-        { status: 400 }
-      );
+    // Validate request body
+    const validation = await validateRequestBody(request, createPatientSchema);
+    if (!validation.success) {
+      return NextResponse.json(validation.error, { status: 400 });
     }
 
+    const { firstName, lastName, phoneNumber, email, dateOfBirth, smsEnabled, voiceEnabled, medicalNotes } = validation.data;
+
+    // Additional phone number validation using Twilio helper
     if (!isValidPhoneNumber(phoneNumber)) {
       return NextResponse.json(
-        { error: 'Invalid phone number format' },
+        { 
+          message: 'Validation failed',
+          errors: { phoneNumber: 'Invalid phone number format for your region' }
+        },
         { status: 400 }
       );
     }
@@ -65,7 +67,10 @@ export async function POST(request: NextRequest) {
 
     if (existingPatient) {
       return NextResponse.json(
-        { error: 'Patient with this phone number already exists' },
+        { 
+          message: 'Validation failed',
+          errors: { phoneNumber: 'Patient with this phone number already exists' }
+        },
         { status: 409 }
       );
     }
@@ -75,11 +80,11 @@ export async function POST(request: NextRequest) {
         firstName,
         lastName,
         phoneNumber: formattedPhone,
-        email,
+        email: email || null,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         smsEnabled: smsEnabled ?? true,
         voiceEnabled: voiceEnabled ?? true,
-        medicalNotes,
+        medicalNotes: medicalNotes || null,
       },
     });
 
@@ -96,16 +101,26 @@ export async function POST(request: NextRequest) {
 // PUT /api/patients - Update an existing patient
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { id, firstName, lastName, phoneNumber, email, dateOfBirth, smsEnabled, voiceEnabled, medicalNotes } = body;
+    // Validate request body
+    const validation = await validateRequestBody(request, updatePatientSchema);
+    if (!validation.success) {
+      return NextResponse.json(validation.error, { status: 400 });
+    }
 
-    // Validation
-    if (!id || !firstName || !lastName || !phoneNumber) {
+    const { id, firstName, lastName, phoneNumber, email, dateOfBirth, smsEnabled, voiceEnabled, medicalNotes } = validation.data;
+
+    // Additional phone number validation using Twilio helper
+    if (!isValidPhoneNumber(phoneNumber)) {
       return NextResponse.json(
-        { error: 'id, firstName, lastName, and phoneNumber are required' },
+        { 
+          message: 'Validation failed',
+          errors: { phoneNumber: 'Invalid phone number format for your region' }
+        },
         { status: 400 }
       );
     }
+
+    const formattedPhone = formatPhoneNumber(phoneNumber);
 
     // Check if patient exists
     const existingPatient = await db.patient.findUnique({
@@ -119,16 +134,33 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Check if another patient already has this phone number (if changing)
+    if (formattedPhone !== existingPatient.phoneNumber) {
+      const phoneConflict = await db.patient.findUnique({
+        where: { phoneNumber: formattedPhone },
+      });
+
+      if (phoneConflict) {
+        return NextResponse.json(
+          { 
+            message: 'Validation failed',
+            errors: { phoneNumber: 'Another patient already has this phone number' }
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const updatedPatient = await db.patient.update({
       where: { id },
       data: {
         firstName,
         lastName,
-        phoneNumber,
+        phoneNumber: formattedPhone,
         email: email || null,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-        smsEnabled: smsEnabled !== undefined ? smsEnabled : true,
-        voiceEnabled: voiceEnabled !== undefined ? voiceEnabled : true,
+        smsEnabled: smsEnabled ?? true,
+        voiceEnabled: voiceEnabled ?? true,
         medicalNotes: medicalNotes || null,
       },
     });

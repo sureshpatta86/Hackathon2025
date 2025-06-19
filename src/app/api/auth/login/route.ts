@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
+import { loginSchema, validateRequestBody } from '@/lib/validation';
 
 // POST /api/auth/login - User authentication
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { username, password } = body;
-
-    // Validation
-    if (!username || !password) {
-      return NextResponse.json(
-        { error: 'Username and password are required' },
-        { status: 400 }
-      );
+    // Validate request body
+    const validation = await validateRequestBody(request, loginSchema);
+    if (!validation.success) {
+      return NextResponse.json(validation.error, { status: 400 });
     }
+
+    const { username, password } = validation.data;
 
     // Find user in database
     const user = await db.user.findUnique({
