@@ -19,7 +19,7 @@ async function createAdminUser() {
 
     // Create admin user with hashed password
     const saltRounds = 10;
-    const hashedPassword = bcrypt.hashSync('admin', saltRounds);
+    const hashedPassword = bcrypt.hashSync('admin123', saltRounds);
     
     await db.user.create({
       data: {
