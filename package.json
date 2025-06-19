@@ -1,0 +1,45 @@
+{
+  "name": "hackton-2025",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:seed": "tsx src/lib/seed.ts",
+    "script": "tsx",
+    "db:setup": "npx prisma generate && npx prisma db push",
+    "db:reset": "npx prisma db push --force-reset",
+    "full-start": "npm run db:setup && npm run dev",
+    "start:demo": "cross-env MESSAGING_MODE=demo npm run dev",
+    "start:live": "cross-env MESSAGING_MODE=live npm run dev"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.10.1",
+    "@types/bcryptjs": "^3.0.0",
+    "@types/twilio": "^3.19.3",
+    "bcryptjs": "^3.0.2",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.518.0",
+    "next": "15.3.4",
+    "prisma": "^6.10.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sqlite3": "^5.1.7",
+    "twilio": "^5.7.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "cross-env": "^7.0.3",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.4",
+    "tailwindcss": "^4",
+    "tsx": "^4.20.3",
+    "typescript": "^5"
+  }
+}
