@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import AuthWrapper from '@/components/AuthWrapper';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input, Select, Textarea } from '@/components/ui/form';
 import { useNotification } from '@/components/ui/notification';
 import { getAvailableTemplateVariables } from '@/lib/templateVariables';
-import { ValidatedForm, ValidatedInput, ValidatedSelect, ValidatedTextarea } from '@/components/ui/validation';
-import { useFormValidation } from '@/hooks/useFormValidation';
-import { createPatientSchema, updatePatientSchema, createTemplateSchema, updateTemplateSchema, sendCommunicationSchema } from '@/lib/validation';
-import { MessageSquare, Phone, Users, Send, Plus, BarChart3, Clock, TrendingUp, AlertTriangle, CheckCircle, XCircle, Calendar, Settings, Info, Edit2, Trash2, Save, X } from 'lucide-react';
+import { MessageSquare, Phone, Send, Plus } from 'lucide-react';
+import {
+  OverviewTab,
+  SettingsTab
+} from '@/components/dashboard';
 
 interface Patient {
   id: string;
@@ -38,13 +39,20 @@ interface Communication {
   id: string;
   type: 'SMS' | 'VOICE';
   content: string;
-  phoneNumber: string;
-  status: 'PENDING' | 'SENT' | 'DELIVERED' | 'FAILED';
-  sentAt?: Date;
-  deliveredAt?: Date;
-  failedAt?: Date;
-  errorMessage?: string;
-  patient: Patient;
+  status: string;
+  sentAt?: string;
+  deliveredAt?: string;
+  failedAt?: string;
+  patient: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+  };
+  template?: {
+    id: string;
+    name: string;
+  };
 }
 
 interface PatientGroup {
@@ -52,68 +60,47 @@ interface PatientGroup {
   name: string;
   description?: string;
   color: string;
+  patients: {
+    id: string;
+    patient: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      phoneNumber: string;
+    };
+  }[];
   _count: {
     patients: number;
   };
-  patients: Array<{
-    id: string;
-    patient: Patient;
-  }>;
 }
 
 interface Analytics {
   stats: {
     totalCommunications: number;
-    sms: {
-      total: number;
-      delivered: number;
-      failed: number;
-      pending: number;
-    };
-    voice: {
-      total: number;
-      delivered: number;
-      failed: number;
-      pending: number;
-    };
+    sms: { total: number; delivered: number; failed: number; pending: number };
+    voice: { total: number; delivered: number; failed: number; pending: number };
   };
-  successRates: {
-    sms: number;
-    voice: number;
-  };
-  dailyStats: Array<{
-    date: string;
-    sent: number;
-    delivered: number;
-    failed: number;
-  }>;
-  topPatients: Array<{
-    name: string;
-    count: number;
-  }>;
-  recentFailures: Array<{
+  successRates: { sms: number; voice: number };
+  dailyStats: { date: string; sms: number; voice: number; total: number }[];
+  topPatients: { name: string; count: number }[];
+  recentFailures: {
     id: string;
-    type: 'SMS' | 'VOICE';
+    type: string;
     patient: string;
     phoneNumber: string;
     errorMessage: string;
     failedAt: string;
-  }>;
-  dateRange: {
-    from: string;
-    to: string;
-    days: number;
-  };
+  }[];
 }
 
 export default function Dashboard() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
+  const [patientGroups, setPatientGroups] = useState<PatientGroup[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [analyticsDateRange, setAnalyticsDateRange] = useState('30'); // days
   const [settings, setSettings] = useState<{
     messagingMode: string;
     twilioConfigured: boolean;
@@ -121,167 +108,119 @@ export default function Dashboard() {
   } | null>(null);
   const { addNotification } = useNotification();
 
-  // Validation hooks
-  const newPatientValidation = useFormValidation(createPatientSchema);
-  const editPatientValidation = useFormValidation(updatePatientSchema);
-  const newTemplateValidation = useFormValidation(createTemplateSchema);
-  const editTemplateValidation = useFormValidation(updateTemplateSchema);
-  const sendMessageValidation = useFormValidation(sendCommunicationSchema);
-
+  // Bulk messaging state
+  const [selectedPatients, setSelectedPatients] = useState<string[]>([]);
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [scheduleMessage, setScheduleMessage] = useState(false);
+  const [scheduledTime, setScheduledTime] = useState('');
+  
   // Form states
   const [selectedPatient, setSelectedPatient] = useState('');
-  const [messageType, setMessageType] = useState<'SMS' | 'VOICE'>('SMS');
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [messageType, setMessageType] = useState<'SMS' | 'VOICE'>('SMS');
   const [customMessage, setCustomMessage] = useState('');
   const [sending, setSending] = useState(false);
-
-  // New patient form
+  
+  // Patient form
   const [newPatient, setNewPatient] = useState({
     firstName: '',
     lastName: '',
     phoneNumber: '',
     email: '',
     smsEnabled: true,
-    voiceEnabled: false,
-  });
-  const [addingPatient, setAddingPatient] = useState(false);
-
-  // Edit patient form
-  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
-  const [editPatientData, setEditPatientData] = useState({
-    firstName: '',
-    lastName: '',
-    phoneNumber: '',
-    email: '',
-    smsEnabled: true,
-    voiceEnabled: false,
+    voiceEnabled: true,
   });
 
-  // New template form
+  // Template form
   const [newTemplate, setNewTemplate] = useState({
     name: '',
     type: 'SMS' as 'SMS' | 'VOICE',
     content: '',
   });
-  const [addingTemplate, setAddingTemplate] = useState(false);
 
-  // Edit template form
-  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-  const [editTemplateData, setEditTemplateData] = useState({
+  // CSV import state
+  const [csvData, setCsvData] = useState('');
+  const [skipHeader, setSkipHeader] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const [importResults, setImportResults] = useState<{
+    total: number;
+    successful: number;
+    failed: number;
+    errors: string[];
+  } | null>(null);
+
+  // Group management state
+  const [newGroup, setNewGroup] = useState({
     name: '',
-    type: 'SMS' as 'SMS' | 'VOICE',
-    content: '',
+    description: '',
+    color: '#3B82F6',
+    patientIds: [] as string[],
   });
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const [patientsRes, templatesRes, communicationsRes] = await Promise.all([
+      const [patientsRes, templatesRes, communicationsRes, groupsRes] = await Promise.all([
         fetch('/api/patients'),
         fetch('/api/templates'),
         fetch('/api/communications'),
+        fetch('/api/patient-groups'),
       ]);
-
+      
       if (patientsRes.ok) {
         const patientsData = await patientsRes.json();
         setPatients(patientsData);
       }
-
+      
       if (templatesRes.ok) {
         const templatesData = await templatesRes.json();
         setTemplates(templatesData);
       }
-
+      
       if (communicationsRes.ok) {
         const communicationsData = await communicationsRes.json();
         setCommunications(communicationsData);
       }
+      
+      if (groupsRes.ok) {
+        const groupsData = await groupsRes.json();
+        setPatientGroups(groupsData);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
-      addNotification('error', 'Failed to load data');
     } finally {
       setLoading(false);
     }
-  }, [addNotification]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const fetchAnalytics = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/analytics?days=${analyticsDateRange}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAnalytics(data);
-      }
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-    }
-  }, [analyticsDateRange]);
-
-  const fetchSettings = useCallback(async () => {
-    try {
-      const response = await fetch('/api/settings');
-      if (response.ok) {
-        const data = await response.json();
-        setSettings(data);
-      }
-    } catch (error) {
-      console.error('Error fetching settings:', error);
-    }
-  }, []);
-
-  // Load analytics when analytics tab is opened or date range changes
-  useEffect(() => {
-    if (activeTab === 'analytics') {
-      fetchAnalytics();
-    }
-  }, [activeTab, fetchAnalytics]);
-
-  // Load settings when settings tab is opened
-  useEffect(() => {
-    if (activeTab === 'settings') {
-      fetchSettings();
-    }
-  }, [activeTab, fetchSettings]);
-
-  // Load settings on component mount to show correct mode indicator
-  useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
+  };
 
   const handleSendMessage = async () => {
-    if (!selectedPatient || (!selectedTemplate && !customMessage.trim())) {
-      addNotification('error', 'Please select a patient and provide a message');
-      return;
-    }
-
-    setSending(true);
+    if (!selectedPatient || (!selectedTemplate && !customMessage)) return;
+    
     try {
-      const patient = patients.find(p => p.id === selectedPatient);
-      if (!patient) return;
-
-      const selectedTemplateData = templates.find(t => t.id === selectedTemplate);
-      const content = selectedTemplateData ? selectedTemplateData.content : customMessage;
-
-      const response = await fetch('/api/communications', {
+      setSending(true);
+      const endpoint = messageType === 'SMS' ? '/api/communications/sms' : '/api/communications/voice';
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId: selectedPatient,
-          type: messageType,
-          content,
-          phoneNumber: patient.phoneNumber,
+          templateId: selectedTemplate || undefined,
+          customMessage: customMessage || undefined,
         }),
       });
-
+      
       if (response.ok) {
         addNotification('success', 'Message sent successfully!');
         setSelectedPatient('');
         setSelectedTemplate('');
         setCustomMessage('');
-        fetchData(); // Refresh data
+        fetchData(); // Refresh communication history
       } else {
         const error = await response.json();
         addNotification('error', `Error: ${error.error}`);
@@ -294,22 +233,16 @@ export default function Dashboard() {
     }
   };
 
-  const handleAddPatient = async () => {
-    const validation = newPatientValidation.validate(newPatient);
+  const handleAddPatient = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    if (!validation.isValid) {
-      addNotification('error', 'Please fix the validation errors below');
-      return;
-    }
-
-    setAddingPatient(true);
     try {
       const response = await fetch('/api/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(validation.data),
+        body: JSON.stringify(newPatient),
       });
-
+      
       if (response.ok) {
         addNotification('success', 'Patient added successfully!');
         setNewPatient({
@@ -318,9 +251,9 @@ export default function Dashboard() {
           phoneNumber: '',
           email: '',
           smsEnabled: true,
-          voiceEnabled: false,
+          voiceEnabled: true,
         });
-        fetchData(); // Refresh patient list
+        fetchData();
       } else {
         const error = await response.json();
         addNotification('error', `Error: ${error.error}`);
@@ -328,182 +261,225 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error adding patient:', error);
       addNotification('error', 'Failed to add patient');
-    } finally {
-      setAddingPatient(false);
     }
   };
 
-  const handleEditPatient = (patient: Patient) => {
-    setEditingPatient(patient);
-    setEditPatientData({
-      firstName: patient.firstName,
-      lastName: patient.lastName,
-      phoneNumber: patient.phoneNumber,
-      email: patient.email || '',
-      smsEnabled: patient.smsEnabled,
-      voiceEnabled: patient.voiceEnabled,
-    });
-  };
-
-  const handleUpdatePatient = async () => {
-    if (!editingPatient || !editPatientData.firstName || !editPatientData.lastName || !editPatientData.phoneNumber) {
-      addNotification('error', 'Please fill in all required fields');
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/patients', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingPatient.id,
-          ...editPatientData,
-        }),
-      });
-
-      if (response.ok) {
-        addNotification('success', 'Patient updated successfully!');
-        setEditingPatient(null);
-        fetchData(); // Refresh patient list
-      } else {
-        const error = await response.json();
-        addNotification('error', `Error: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('Error updating patient:', error);
-      addNotification('error', 'Failed to update patient');
-    }
-  };
-
-  const handleDeletePatient = async (patientId: string, patientName: string) => {
-    if (!confirm(`Are you sure you want to delete patient "${patientName}"? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/patients?id=${patientId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        addNotification('success', 'Patient deleted successfully!');
-        fetchData(); // Refresh patient list
-      } else {
-        const error = await response.json();
-        addNotification('error', `Error: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('Error deleting patient:', error);
-      addNotification('error', 'Failed to delete patient');
-    }
-  };
-
-  const handleAddTemplate = async () => {
-    if (!newTemplate.name || !newTemplate.content) {
-      addNotification('error', 'Please fill in all fields');
-      return;
-    }
-
-    setAddingTemplate(true);
+  const handleAddTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
       const response = await fetch('/api/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTemplate),
       });
-
+      
       if (response.ok) {
-        addNotification('success', 'Template added successfully!');
+        addNotification('success', 'Template created successfully!');
         setNewTemplate({
           name: '',
           type: 'SMS',
           content: '',
         });
-        fetchData(); // Refresh templates
+        fetchData();
       } else {
         const error = await response.json();
         addNotification('error', `Error: ${error.error}`);
       }
     } catch (error) {
-      console.error('Error adding template:', error);
-      addNotification('error', 'Failed to add template');
-    } finally {
-      setAddingTemplate(false);
+      console.error('Error creating template:', error);
+      addNotification('error', 'Failed to create template');
     }
   };
 
-  const handleEditTemplate = (template: Template) => {
-    setEditingTemplate(template);
-    setEditTemplateData({
-      name: template.name,
-      type: template.type as 'SMS' | 'VOICE',
-      content: template.content,
-    });
-  };
-
-  const handleUpdateTemplate = async () => {
-    if (!editingTemplate || !editTemplateData.name || !editTemplateData.content) {
-      addNotification('error', 'Please fill in all required fields');
+  const handleBulkSend = async () => {
+    if (!customMessage.trim() || (!selectedPatients.length && !selectedGroups.length)) {
+      addNotification('error', 'Please select recipients and enter a message');
       return;
     }
 
+    setSending(true);
     try {
-      const response = await fetch('/api/templates', {
-        method: 'PUT',
+      const payload: {
+        type: 'SMS' | 'VOICE';
+        customMessage: string;
+        templateId?: string | null;
+        patientIds?: string[];
+        groupId?: string;
+        scheduleFor?: string;
+      } = {
+        type: messageType,
+        customMessage,
+        templateId: selectedTemplate || null,
+      };
+
+      if (selectedPatients.length > 0) {
+        payload.patientIds = selectedPatients;
+      }
+
+      if (selectedGroups.length > 0) {
+        payload.groupId = selectedGroups[0]; // For now, support one group at a time
+      }
+
+      if (scheduleMessage && scheduledTime) {
+        payload.scheduleFor = new Date(scheduledTime).toISOString();
+      }
+
+      const response = await fetch('/api/communications/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        addNotification('success', result.message);
+        setSelectedPatients([]);
+        setSelectedGroups([]);
+        setCustomMessage('');
+        setSelectedTemplate('');
+        setScheduleMessage(false);
+        setScheduledTime('');
+        fetchData(); // Refresh data
+      } else {
+        const error = await response.json();
+        addNotification('error', `Error: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error sending bulk messages:', error);
+      addNotification('error', 'Failed to send bulk messages');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleCsvImport = async () => {
+    if (!csvData.trim()) {
+      addNotification('error', 'Please provide CSV data');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      // Parse CSV data
+      const lines = csvData.split('\n').filter(line => line.trim() !== '');
+      if (lines.length === 0) {
+        addNotification('error', 'No data found in CSV');
+        return;
+      }
+
+      // Convert to array format expected by the API
+      const csvArray = lines.map(line => line.split(',').map(cell => cell.trim()));
+
+      const response = await fetch('/api/patients/import', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: editingTemplate.id,
-          ...editTemplateData,
+          csvData: csvArray,
+          skipHeader,
         }),
       });
 
       if (response.ok) {
-        addNotification('success', 'Template updated successfully!');
-        setEditingTemplate(null);
-        fetchData(); // Refresh templates
+        const result = await response.json();
+        setImportResults(result.results);
+        addNotification('success', result.message);
+        fetchData(); // Refresh patient list
+        setCsvData(''); // Clear the CSV data
       } else {
         const error = await response.json();
-        addNotification('error', `Error: ${error.error}`);
+        addNotification('error', `Import failed: ${error.error}`);
       }
     } catch (error) {
-      console.error('Error updating template:', error);
-      addNotification('error', 'Failed to update template');
+      console.error('Error importing CSV:', error);
+      addNotification('error', 'Failed to import CSV data');
+    } finally {
+      setImporting(false);
     }
   };
 
-  const handleDeleteTemplate = async (templateId: string, templateName: string) => {
-    if (!confirm(`Are you sure you want to delete template "${templateName}"? This action cannot be undone.`)) {
+  const handleCreateGroup = async () => {
+    if (!newGroup.name.trim()) {
+      addNotification('error', 'Group name is required');
       return;
     }
 
+    setCreatingGroup(true);
     try {
-      const response = await fetch(`/api/templates?id=${templateId}`, {
-        method: 'DELETE',
+      const response = await fetch('/api/patient-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newGroup.name,
+          description: newGroup.description || null,
+          color: newGroup.color,
+          patientIds: newGroup.patientIds,
+        }),
       });
 
       if (response.ok) {
-        addNotification('success', 'Template deleted successfully!');
-        fetchData(); // Refresh templates
+        const result = await response.json();
+        addNotification('success', `Group "${result.name}" created successfully!`);
+        setNewGroup({
+          name: '',
+          description: '',
+          color: '#3B82F6',
+          patientIds: [],
+        });
+        fetchData(); // Refresh groups
       } else {
         const error = await response.json();
         addNotification('error', `Error: ${error.error}`);
       }
     } catch (error) {
-      console.error('Error deleting template:', error);
-      addNotification('error', 'Failed to delete template');
+      console.error('Error creating group:', error);
+      addNotification('error', 'Failed to create group');
+    } finally {
+      setCreatingGroup(false);
     }
+  };
+
+  const filteredTemplates = templates.filter(t => t.type === messageType);
+  const selectedTemplateData = templates.find(t => t.id === selectedTemplate);
+
+  // Load analytics when analytics tab is opened
+  useEffect(() => {
+    if (activeTab === 'analytics' && !analytics) {
+      const loadAnalytics = async () => {
+        try {
+          const res = await fetch('/api/analytics');
+          if (res.ok) {
+            const data = await res.json();
+            setAnalytics(data);
+          }
+        } catch (error) {
+          console.error('Error loading analytics:', error);
+        }
+      };
+      loadAnalytics();
+    }
+  }, [activeTab, analytics]);
+
+  // Settings actions
+  const fetchSettingsAction = async () => {
+    try {
+      const response = await fetch('/api/settings');
+      const data = await response.json();
+      setSettings(data);
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    }
+  };
+
+  const setActiveTabAction = (tab: string) => {
+    setActiveTab(tab);
   };
 
   if (loading) {
     return (
-      <AuthWrapper>
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading dashboard...</p>
-          </div>
-        </div>
-      </AuthWrapper>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-xl text-gray-600">Loading...</div>
+      </div>
     );
   }
 
@@ -529,7 +505,14 @@ export default function Dashboard() {
                 onClick={() => setActiveTab('send')}
                 size="sm"
               >
-                Send Message
+                Send
+              </Button>
+              <Button
+                variant={activeTab === 'bulk' ? 'primary' : 'outline'}
+                onClick={() => setActiveTab('bulk')}
+                size="sm"
+              >
+                Bulk
               </Button>
               <Button
                 variant={activeTab === 'patients' ? 'primary' : 'outline'}
@@ -539,18 +522,11 @@ export default function Dashboard() {
                 Patients
               </Button>
               <Button
-                variant={activeTab === 'templates' ? 'primary' : 'outline'}
-                onClick={() => setActiveTab('templates')}
+                variant={activeTab === 'groups' ? 'primary' : 'outline'}
+                onClick={() => setActiveTab('groups')}
                 size="sm"
               >
-                Templates
-              </Button>
-              <Button
-                variant={activeTab === 'communications' ? 'primary' : 'outline'}
-                onClick={() => setActiveTab('communications')}
-                size="sm"
-              >
-                History
+                Groups
               </Button>
               <Button
                 variant={activeTab === 'analytics' ? 'primary' : 'outline'}
@@ -560,193 +536,216 @@ export default function Dashboard() {
                 Analytics
               </Button>
               <Button
+                variant={activeTab === 'templates' ? 'primary' : 'outline'}
+                onClick={() => setActiveTab('templates')}
+                size="sm"
+              >
+                Templates
+              </Button>
+              <Button
+                variant={activeTab === 'history' ? 'primary' : 'outline'}
+                onClick={() => setActiveTab('history')}
+                size="sm"
+              >
+                History
+              </Button>
+              <Button
                 variant={activeTab === 'settings' ? 'primary' : 'outline'}
                 onClick={() => setActiveTab('settings')}
                 size="sm"
               >
-                <Settings className="mr-2 h-4 w-4" />
                 Settings
               </Button>
             </nav>
           </div>
         </div>
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Messaging Mode Indicator */}
-          {settings && (
-            <div className={`mb-6 p-3 border rounded-lg ${
-              settings.messagingMode === 'live' 
-                ? 'bg-green-50 border-green-200' 
-                : 'bg-yellow-50 border-yellow-200'
-            }`}>
-              <div className="flex items-center">
-                <div className={`w-3 h-3 rounded-full mr-2 ${
-                  settings.messagingMode === 'live' ? 'bg-green-400' : 'bg-yellow-400'
-                }`}></div>
-                <p className={`text-sm ${
-                  settings.messagingMode === 'live' ? 'text-green-800' : 'text-yellow-800'
-                }`}>
-                  <strong>{settings.messagingMode === 'live' ? 'Live Mode:' : 'Demo Mode:'}</strong> {
-                    settings.messagingMode === 'live' 
-                      ? 'Messages will be sent to real phone numbers via Twilio. Make sure phone numbers are valid and you have Twilio credits.'
-                      : 'Messages are simulated and not actually sent to phones. To enable real messaging, configure Twilio in Settings.'
-                  }
-                </p>
-              </div>
-            </div>
-          )}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'dashboard' && (
+          <OverviewTab 
+            patients={patients}
+            templates={templates}
+            communications={communications}
+          />
+        )}
 
-          {activeTab === 'dashboard' && (
-            <div className="space-y-8">
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center">
-                      <Users className="h-8 w-8 text-blue-500" />
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total Patients</p>
-                        <p className="text-2xl font-bold text-gray-900">{patients.length}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center">
-                      <MessageSquare className="h-8 w-8 text-green-500" />
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Messages Sent</p>
-                        <p className="text-2xl font-bold text-gray-900">{communications.length}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center">
-                      <BarChart3 className="h-8 w-8 text-purple-500" />
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Templates</p>
-                        <p className="text-2xl font-bold text-gray-900">{templates.length}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center">
-                      <Clock className="h-8 w-8 text-orange-500" />
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Success Rate</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {communications.length > 0 
-                            ? Math.round((communications.filter(c => c.status === 'DELIVERED').length / communications.length) * 100)
-                            : 0}%
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Recent Activity */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Communications</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {communications.slice(0, 5).map((comm) => (
-                      <div key={comm.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          {comm.type === 'SMS' ? (
-                            <MessageSquare className="h-5 w-5 text-blue-500" />
-                          ) : (
-                            <Phone className="h-5 w-5 text-green-500" />
-                          )}
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {comm.patient.firstName} {comm.patient.lastName}
-                            </p>
-                            <p className="text-sm text-gray-600">{comm.content.substring(0, 50)}...</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            comm.status === 'DELIVERED' 
-                              ? 'bg-green-100 text-green-800'
-                              : comm.status === 'FAILED'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {comm.status}
-                          </span>
-                          {comm.sentAt && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              {new Date(comm.sentAt).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {communications.length === 0 && (
-                      <p className="text-gray-500 text-center py-8">No communications yet.</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {activeTab === 'send' && (
+        {activeTab === 'send' && (
+          <div className="max-w-2xl mx-auto">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Send className="mr-2 h-5 w-5" />
-                  Send Message
-                </CardTitle>
+                <CardTitle>Send Communication</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Select Patient</label>
-                    <Select
-                      value={selectedPatient}
-                      onChange={(e) => setSelectedPatient(e.target.value)}
-                    >
-                      <option value="">Choose a patient...</option>
-                      {patients.map((patient) => (
-                        <option key={patient.id} value={patient.id}>
-                          {patient.firstName} {patient.lastName} ({patient.phoneNumber})
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
+                {/* Message Type Selection */}
+                <div className="flex space-x-4">
+                  <Button
+                    variant={messageType === 'SMS' ? 'primary' : 'outline'}
+                    onClick={() => setMessageType('SMS')}
+                    className="flex-1"
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    SMS
+                  </Button>
+                  <Button
+                    variant={messageType === 'VOICE' ? 'primary' : 'outline'}
+                    onClick={() => setMessageType('VOICE')}
+                    className="flex-1"
+                  >
+                    <Phone className="h-4 w-4 mr-2" />
+                    Voice Call
+                  </Button>
+                </div>
+
+                {/* Patient Selection */}
+                <Select
+                  label="Select Patient"
+                  value={selectedPatient}
+                  onChange={(e) => setSelectedPatient(e.target.value)}
+                >
+                  <option value="">Choose a patient...</option>
+                  {patients.map((patient) => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.firstName} {patient.lastName} - {patient.phoneNumber}
+                    </option>
+                  ))}
+                </Select>
+
+                {/* Template Selection */}
+                <Select
+                  label="Template (Optional)"
+                  value={selectedTemplate}
+                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                >
+                  <option value="">Custom message...</option>
+                  {filteredTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </Select>
+
+                {/* Message Content */}
+                <Textarea
+                  label="Message"
+                  value={selectedTemplateData ? selectedTemplateData.content : customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  placeholder={`Enter your ${messageType.toLowerCase()} message here...`}
+                  rows={4}
+                  disabled={!!selectedTemplateData}
+                />
+
+                {/* Send Button */}
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!selectedPatient || (!selectedTemplate && !customMessage) || sending}
+                  className="w-full"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {sending ? 'Sending...' : `Send ${messageType}`}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'bulk' && (
+          <div className="space-y-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Bulk Messaging</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Message Type Selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Message Type</label>
+                  <Select
+                    value={messageType}
+                    onChange={(e) => setMessageType(e.target.value as 'SMS' | 'VOICE')}
+                  >
+                    <option value="SMS">SMS Message</option>
+                    <option value="VOICE">Voice Call</option>
+                  </Select>
+                </div>
+
+                {/* Recipient Selection */}
+                <div className="space-y-4">
+                  <label className="text-sm font-medium text-gray-700">Recipients</label>
                   
+                  {/* Individual Patients */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Message Type</label>
-                    <Select
-                      value={messageType}
-                      onChange={(e) => setMessageType(e.target.value as 'SMS' | 'VOICE')}
-                    >
-                      <option value="SMS">SMS</option>
-                      <option value="VOICE">Voice Call</option>
-                    </Select>
+                    <h4 className="text-sm font-medium text-gray-900">Select Individual Patients</h4>
+                    <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
+                      {patients.map((patient) => (
+                        <label key={patient.id} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedPatients.includes(patient.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedPatients([...selectedPatients, patient.id]);
+                              } else {
+                                setSelectedPatients(selectedPatients.filter(id => id !== patient.id));
+                              }
+                            }}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-gray-900">
+                            {patient.firstName} {patient.lastName} ({patient.phoneNumber})
+                            {messageType === 'SMS' && !patient.smsEnabled && 
+                              <span className="text-red-500 ml-1">(SMS disabled)</span>}
+                            {messageType === 'VOICE' && !patient.voiceEnabled && 
+                              <span className="text-red-500 ml-1">(Voice disabled)</span>}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Patient Groups */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-900">Select Patient Groups</h4>
+                    <div className="space-y-2">
+                      {patientGroups.map((group) => (
+                        <label key={group.id} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedGroups.includes(group.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedGroups([...selectedGroups, group.id]);
+                              } else {
+                                setSelectedGroups(selectedGroups.filter(id => id !== group.id));
+                              }
+                            }}
+                            className="rounded"
+                          />
+                          <span 
+                            className="w-3 h-3 rounded-full mr-2" 
+                            style={{ backgroundColor: group.color }}
+                          ></span>
+                          <span className="text-sm text-gray-900">
+                            {group.name} ({group._count.patients} patients)
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
+                {/* Template Selection */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Template (Optional)</label>
+                  <label className="text-sm font-medium text-gray-700">Message Template</label>
                   <Select
                     value={selectedTemplate}
-                    onChange={(e) => setSelectedTemplate(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedTemplate(e.target.value);
+                      const template = templates.find(t => t.id === e.target.value && t.type === messageType);
+                      if (template) {
+                        setCustomMessage(template.content);
+                      }
+                    }}
                   >
-                    <option value="">Choose a template or write custom message...</option>
+                    <option value="">Select a template (optional)</option>
                     {templates
                       .filter(template => template.type === messageType)
                       .map((template) => (
@@ -757,1108 +756,715 @@ export default function Dashboard() {
                   </Select>
                 </div>
 
+                {/* Message Content */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Message Content</label>
                   <Textarea
-                    value={selectedTemplate ? templates.find(t => t.id === selectedTemplate)?.content || '' : customMessage}
+                    value={customMessage}
                     onChange={(e) => setCustomMessage(e.target.value)}
-                    placeholder="Type your message here..."
+                    placeholder={`Enter your ${messageType.toLowerCase()} message here...`}
                     rows={4}
-                    disabled={!!selectedTemplate}
+                    className="w-full"
                   />
+                  <div className="text-xs text-gray-500">
+                    Available variables: {'{firstName}'}, {'{lastName}'}, {'{fullName}'}
+                  </div>
                 </div>
 
+                {/* Scheduling Options */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Delivery Options</label>
+                  <div className="space-y-3">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        name="deliveryType"
+                        checked={!scheduleMessage}
+                        onChange={() => setScheduleMessage(false)}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-gray-900">Send immediately</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        name="deliveryType"
+                        checked={scheduleMessage}
+                        onChange={() => setScheduleMessage(true)}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-gray-900">Schedule for later</span>
+                    </label>
+                    {scheduleMessage && (
+                      <div className="ml-6 space-y-2">
+                        <Input
+                          type="datetime-local"
+                          value={scheduledTime}
+                          onChange={(e) => setScheduledTime(e.target.value)}
+                          min={new Date().toISOString().slice(0, 16)}
+                          className="w-auto"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Send Button */}
                 <Button
-                  onClick={handleSendMessage}
-                  disabled={sending}
-                  variant="primary"
+                  onClick={handleBulkSend}
+                  disabled={sending || (!selectedPatients.length && !selectedGroups.length) || !customMessage.trim()}
                   className="w-full"
+                  variant="primary"
                 >
-                  {sending ? 'Sending...' : 'Send Message'}
+                  <Send className="h-4 w-4 mr-2" />
+                  {sending ? 'Sending...' : scheduleMessage ? 'Schedule Messages' : `Send Bulk ${messageType}`}
                 </Button>
+
+                {/* Summary */}
+                {(selectedPatients.length > 0 || selectedGroups.length > 0) && (
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">Delivery Summary</h4>
+                    <div className="text-sm text-blue-800 space-y-1">
+                      {selectedPatients.length > 0 && (
+                        <p>Individual patients: {selectedPatients.length}</p>
+                      )}
+                      {selectedGroups.length > 0 && (
+                        <p>Patient groups: {selectedGroups.length} ({patientGroups.filter(g => selectedGroups.includes(g.id)).reduce((sum, g) => sum + g._count.patients, 0)} patients)</p>
+                      )}
+                      <p className="font-medium">
+                        Total recipients: {selectedPatients.length + patientGroups.filter(g => selectedGroups.includes(g.id)).reduce((sum, g) => sum + g._count.patients, 0)}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
 
-          {activeTab === 'patients' && (
-            <div className="space-y-8">
-              {/* Add New Patient */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Plus className="mr-2 h-5 w-5" />
-                    Add New Patient
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ValidatedForm 
-                    errors={newPatientValidation.errors}
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleAddPatient();
-                    }}
-                    isLoading={addingPatient}
-                  >
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <ValidatedInput
-                        label="First Name"
-                        name="firstName"
-                        value={newPatient.firstName}
-                        onChange={(value) => {
-                          setNewPatient({ ...newPatient, firstName: value });
-                          newPatientValidation.clearFieldError('firstName');
-                        }}
-                        placeholder="Enter first name"
-                        required
-                        error={newPatientValidation.errors.firstName}
-                      />
-                      <ValidatedInput
-                        label="Last Name"
-                        name="lastName"
-                        value={newPatient.lastName}
-                        onChange={(value) => {
-                          setNewPatient({ ...newPatient, lastName: value });
-                          newPatientValidation.clearFieldError('lastName');
-                        }}
-                        placeholder="Enter last name"
-                        required
-                        error={newPatientValidation.errors.lastName}
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <ValidatedInput
-                        label="Phone Number"
-                        name="phoneNumber"
-                        value={newPatient.phoneNumber}
-                        onChange={(value) => {
-                          setNewPatient({ ...newPatient, phoneNumber: value });
-                          newPatientValidation.clearFieldError('phoneNumber');
-                        }}
-                        placeholder="+1234567890"
-                        required
-                        error={newPatientValidation.errors.phoneNumber}
-                      />
-                      <ValidatedInput
-                        label="Email"
-                        name="email"
-                        type="email"
-                        value={newPatient.email}
-                        onChange={(value) => {
-                          setNewPatient({ ...newPatient, email: value });
-                          newPatientValidation.clearFieldError('email');
-                        }}
-                        placeholder="email@example.com"
-                        error={newPatientValidation.errors.email}
-                      />
-                    </div>
-
-                    <div className="flex space-x-4">
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={newPatient.smsEnabled}
-                          onChange={(e) => setNewPatient({ ...newPatient, smsEnabled: e.target.checked })}
-                          className="rounded"
-                        />
-                        <span className="text-sm text-gray-700">Enable SMS</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={newPatient.voiceEnabled}
-                          onChange={(e) => setNewPatient({ ...newPatient, voiceEnabled: e.target.checked })}
-                          className="rounded"
-                        />
-                        <span className="text-sm text-gray-700">Enable Voice Calls</span>
-                      </label>
-                    </div>
-
-                    <Button
-                      type="submit"
-                      disabled={addingPatient}
-                      variant="primary"
-                    >
-                      {addingPatient ? 'Adding...' : 'Add Patient'}
-                    </Button>
-                  </ValidatedForm>
-                </CardContent>
-              </Card>
-
-              {/* Edit Patient Modal */}
-              {editingPatient && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span className="flex items-center">
-                        <Edit2 className="mr-2 h-5 w-5" />
-                        Edit Patient: {editingPatient.firstName} {editingPatient.lastName}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditingPatient(null)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">First Name</label>
-                        <Input
-                          value={editPatientData.firstName}
-                          onChange={(e) => setEditPatientData({ ...editPatientData, firstName: e.target.value })}
-                          placeholder="Enter first name"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Last Name</label>
-                        <Input
-                          value={editPatientData.lastName}
-                          onChange={(e) => setEditPatientData({ ...editPatientData, lastName: e.target.value })}
-                          placeholder="Enter last name"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                        <Input
-                          value={editPatientData.phoneNumber}
-                          onChange={(e) => setEditPatientData({ ...editPatientData, phoneNumber: e.target.value })}
-                          placeholder="+1234567890"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Email (Optional)</label>
-                        <Input
-                          value={editPatientData.email}
-                          onChange={(e) => setEditPatientData({ ...editPatientData, email: e.target.value })}
-                          placeholder="patient@example.com"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="edit-sms-enabled"
-                          checked={editPatientData.smsEnabled}
-                          onChange={(e) => setEditPatientData({ ...editPatientData, smsEnabled: e.target.checked })}
-                          className="rounded border-gray-300"
-                        />
-                        <label htmlFor="edit-sms-enabled" className="text-sm font-medium text-gray-700">
-                          SMS Enabled
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="edit-voice-enabled"
-                          checked={editPatientData.voiceEnabled}
-                          onChange={(e) => setEditPatientData({ ...editPatientData, voiceEnabled: e.target.checked })}
-                          className="rounded border-gray-300"
-                        />
-                        <label htmlFor="edit-voice-enabled" className="text-sm font-medium text-gray-700">
-                          Voice Enabled
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="flex space-x-2">
-                      <Button
-                        onClick={handleUpdatePatient}
-                        variant="primary"
-                      >
-                        <Save className="mr-2 h-4 w-4" />
-                        Update Patient
-                      </Button>
-                      <Button
-                        onClick={() => setEditingPatient(null)}
-                        variant="outline"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Patients List */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>All Patients ({patients.length})</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {patients.map((patient) => (
-                      <div key={patient.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                        <div>
-                          <h3 className="font-medium text-gray-900">
-                            {patient.firstName} {patient.lastName}
-                          </h3>
-                          <p className="text-sm text-gray-600">{patient.phoneNumber}</p>
-                          {patient.email && (
-                            <p className="text-sm text-gray-600">{patient.email}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {patient.smsEnabled && (
-                            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">SMS</span>
-                          )}
-                          {patient.voiceEnabled && (
-                            <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Voice</span>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditPatient(patient)}
-                            className="ml-2"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeletePatient(patient.id, `${patient.firstName} ${patient.lastName}`)}
-                            className="text-red-600 hover:text-red-700 hover:border-red-300"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {patients.length === 0 && (
-                      <p className="text-gray-500 text-center py-8">No patients added yet.</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {activeTab === 'templates' && (
-            <div className="space-y-8">
-              {/* Add New Template */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Plus className="mr-2 h-5 w-5" />
-                    Add New Template
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Template Name</label>
-                      <Input
-                        value={newTemplate.name}
-                        onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
-                        placeholder="e.g., Appointment Reminder"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Type</label>
-                      <Select
-                        value={newTemplate.type}
-                        onChange={(e) => setNewTemplate({ ...newTemplate, type: e.target.value as 'SMS' | 'VOICE' })}
-                      >
-                        <option value="SMS">SMS</option>
-                        <option value="VOICE">Voice Call</option>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  {/* Template Variables Helper */}
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-start">
-                      <Info className="h-5 w-5 text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-blue-900 mb-2">Available Template Variables</h3>
-                        <p className="text-sm text-blue-700 mb-3">
-                          Use these variables in your template content. They will be automatically replaced with actual patient data:
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                          {Object.entries(getAvailableTemplateVariables()).map(([variable, description]) => (
-                            <div key={variable} className="flex items-center">
-                              <code className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-mono mr-2">
-                                {variable}
-                              </code>
-                              <span className="text-blue-600">{description}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mt-3 p-2 bg-blue-100 rounded">
-                          <p className="text-xs text-blue-800">
-                            <strong>Example:</strong> Hi {`{firstName}`}, your appointment is on {`{appointmentDate}`} at {`{appointmentTime}`}. Please call {`{clinicPhone}`} if you need to reschedule.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Template Content</label>
-                    <Textarea
-                      value={newTemplate.content}
-                      onChange={(e) => setNewTemplate({ ...newTemplate, content: e.target.value })}
-                      placeholder="Enter your message template..."
-                      rows={4}
-                    />
-                  </div>
-
-                  <Button
-                    onClick={handleAddTemplate}
-                    disabled={addingTemplate}
-                    variant="primary"
-                  >
-                    {addingTemplate ? 'Adding...' : 'Add Template'}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Edit Template Modal */}
-              {editingTemplate && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span className="flex items-center">
-                        <Edit2 className="mr-2 h-5 w-5" />
-                        Edit Template: {editingTemplate.name}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditingTemplate(null)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Template Name</label>
-                        <Input
-                          value={editTemplateData.name}
-                          onChange={(e) => setEditTemplateData({ ...editTemplateData, name: e.target.value })}
-                          placeholder="e.g., Appointment Reminder"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Type</label>
-                        <Select
-                          value={editTemplateData.type}
-                          onChange={(e) => setEditTemplateData({ ...editTemplateData, type: e.target.value as 'SMS' | 'VOICE' })}
-                        >
-                          <option value="SMS">SMS</option>
-                          <option value="VOICE">Voice Call</option>
-                        </Select>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Template Content</label>
-                      <Textarea
-                        value={editTemplateData.content}
-                        onChange={(e) => setEditTemplateData({ ...editTemplateData, content: e.target.value })}
-                        placeholder="Enter your template content here. Use {firstName}, {appointmentDate}, etc. for dynamic variables."
-                        rows={4}
-                      />
-                    </div>
-
-                    <div className="flex space-x-2">
-                      <Button
-                        onClick={handleUpdateTemplate}
-                        variant="primary"
-                      >
-                        <Save className="mr-2 h-4 w-4" />
-                        Update Template
-                      </Button>
-                      <Button
-                        onClick={() => setEditingTemplate(null)}
-                        variant="outline"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Templates List */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Message Templates ({templates.length})</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {templates.map((template) => (
-                      <div key={template.id} className="p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-3">
-                            <h3 className="font-medium text-gray-900">{template.name}</h3>
-                            <span className={`px-2 py-1 text-xs rounded ${
-                              template.type === 'SMS' 
-                                ? 'bg-blue-100 text-blue-800' 
-                                : 'bg-green-100 text-green-800'
-                            }`}>
-                              {template.type}
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEditTemplate(template)}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDeleteTemplate(template.id, template.name)}
-                              className="text-red-600 hover:text-red-700 hover:border-red-300"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-600">{template.content}</p>
-                      </div>
-                    ))}
-                    
-                    {templates.length === 0 && (
-                      <p className="text-gray-500 text-center py-8">No templates created yet.</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {activeTab === 'communications' && (
+            {/* CSV Import */}
             <Card>
               <CardHeader>
-                <CardTitle>Communication History ({communications.length})</CardTitle>
+                <CardTitle>Import Patients from CSV</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">CSV Data</label>
+                  <Textarea
+                    placeholder="Paste CSV data here or drag and drop a file..."
+                    value={csvData}
+                    onChange={(e) => setCsvData(e.target.value)}
+                    rows={6}
+                    className="w-full font-mono text-sm"
+                  />
+                  <div className="text-xs text-gray-500">
+                    Expected format: firstName, lastName, phoneNumber, email, smsEnabled, voiceEnabled, medicalNotes
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="skipHeader"
+                    checked={skipHeader}
+                    onChange={(e) => setSkipHeader(e.target.checked)}
+                    className="rounded"
+                  />
+                  <label htmlFor="skipHeader" className="text-sm text-gray-700">
+                    Skip header row
+                  </label>
+                </div>
+
+                <div className="flex space-x-4">
+                  <Button
+                    onClick={handleCsvImport}
+                    disabled={!csvData.trim() || importing}
+                    variant="primary"
+                  >
+                    {importing ? 'Importing...' : 'Import Patients'}
+                  </Button>
+                  
+                  <Button
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/patients/import/template');
+                        const data = await res.json();
+                        const csvTemplate = data.template.map((row: string[]) => row.join(',')).join('\\n');
+                        setCsvData(csvTemplate);
+                        addNotification('info', 'Template loaded - edit as needed');
+                      } catch (error) {
+                        console.error('Error loading template:', error);
+                        addNotification('error', 'Failed to load template');
+                      }
+                    }}
+                    variant="outline"
+                  >
+                    Load Template
+                  </Button>
+                </div>
+
+                {importResults && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">Import Results</h4>
+                    <div className="text-sm space-y-1">
+                      <p className="text-green-600">✓ Successfully imported: {importResults.successful}</p>
+                      <p className="text-red-600">✗ Failed: {importResults.failed}</p>
+                      <p className="text-gray-600">Total processed: {importResults.total}</p>
+                    </div>
+                    {importResults.errors.length > 0 && (
+                      <div className="mt-3">
+                        <h5 className="font-medium text-red-800 mb-1">Errors:</h5>
+                        <div className="text-xs text-red-600 space-y-1 max-h-20 overflow-y-auto">
+                          {importResults.errors.slice(0, 5).map((error, index) => (
+                            <p key={index}>{error}</p>
+                          ))}
+                          {importResults.errors.length > 5 && (
+                            <p>... and {importResults.errors.length - 5} more errors</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'patients' && (
+          <div className="space-y-8">
+            {/* Add New Patient */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Add New Patient</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleAddPatient} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="First Name"
+                    value={newPatient.firstName}
+                    onChange={(e) => setNewPatient({ ...newPatient, firstName: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="Last Name"
+                    value={newPatient.lastName}
+                    onChange={(e) => setNewPatient({ ...newPatient, lastName: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="Phone Number"
+                    type="tel"
+                    value={newPatient.phoneNumber}
+                    onChange={(e) => setNewPatient({ ...newPatient, phoneNumber: e.target.value })}
+                    placeholder="+1234567890"
+                    required
+                  />
+                  <Input
+                    label="Email (Optional)"
+                    type="email"
+                    value={newPatient.email}
+                    onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
+                  />
+                  <div className="md:col-span-2">
+                    <Button type="submit" className="w-full">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Patient
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Patients List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>All Patients ({patients.length})</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {communications.map((comm) => (
-                    <div key={comm.id} className="p-4 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-3">
-                          {comm.type === 'SMS' ? (
-                            <MessageSquare className="h-5 w-5 text-blue-500" />
-                          ) : (
-                            <Phone className="h-5 w-5 text-green-500" />
+                  {patients.map((patient) => (
+                    <div key={patient.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">
+                          {patient.firstName} {patient.lastName}
+                        </h4>
+                        <p className="text-sm text-gray-600">{patient.phoneNumber}</p>
+                        {patient.email && (
+                          <p className="text-sm text-gray-600">{patient.email}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <div className="flex space-x-2">
+                          {patient.smsEnabled && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              SMS Enabled
+                            </span>
                           )}
-                          <div>
-                            <h3 className="font-medium text-gray-900">
-                              {comm.patient.firstName} {comm.patient.lastName}
-                            </h3>
-                            <p className="text-sm text-gray-600">{comm.phoneNumber}</p>
-                          </div>
+                          {patient.voiceEnabled && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              Voice Enabled
+                            </span>
+                          )}
                         </div>
-                        <div className="text-right">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            comm.status === 'DELIVERED' 
-                              ? 'bg-green-100 text-green-800'
-                              : comm.status === 'FAILED'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {comm.status}
-                          </span>
-                          {comm.sentAt && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              {new Date(comm.sentAt).toLocaleString()}
-                            </p>
+                        <div className="text-sm text-gray-500">
+                          {patient._count && (
+                            <span>
+                              {patient._count.appointments} appointments, {patient._count.communications} messages
+                            </span>
                           )}
                         </div>
                       </div>
-                      <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">
-                        {comm.content}
-                      </p>
-                      {comm.errorMessage && (
-                        <p className="text-xs text-red-600 mt-2">Error: {comm.errorMessage}</p>
-                      )}
                     </div>
                   ))}
-                  
-                  {communications.length === 0 && (
-                    <p className="text-gray-500 text-center py-8">No communications yet.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'history' && (
+          <div className="space-y-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Communication History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {communications.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">No communications sent yet.</p>
+                  ) : (
+                    communications.map((comm) => (
+                      <div key={comm.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            {comm.type === 'SMS' ? (
+                              <MessageSquare className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Phone className="h-4 w-4 text-purple-500" />
+                            )}
+                            <h4 className="font-medium text-gray-900">
+                              {comm.patient.firstName} {comm.patient.lastName}
+                            </h4>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">{comm.patient.phoneNumber}</p>
+                          <p className="text-sm text-gray-700 mt-2 line-clamp-2">{comm.content}</p>
+                          {comm.template && (
+                            <p className="text-xs text-gray-500 mt-1">Template: {comm.template.name}</p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end space-y-2">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              comm.status === 'DELIVERED'
+                                ? 'bg-green-100 text-green-800'
+                                : comm.status === 'SENT'
+                                ? 'bg-blue-100 text-blue-800'
+                                : comm.status === 'FAILED'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}
+                          >
+                            {comm.status}
+                          </span>
+                          <div className="text-xs text-gray-500">
+                            {comm.deliveredAt && (
+                              <p>Delivered: {new Date(comm.deliveredAt).toLocaleString()}</p>
+                            )}
+                            {comm.sentAt && !comm.deliveredAt && (
+                              <p>Sent: {new Date(comm.sentAt).toLocaleString()}</p>
+                            )}
+                            {comm.failedAt && (
+                              <p>Failed: {new Date(comm.failedAt).toLocaleString()}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
               </CardContent>
             </Card>
-          )}
+          </div>
+        )}
 
-          {activeTab === 'analytics' && (
-            <div className="space-y-8">
-              {/* Date Range Selector */}
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium text-gray-900">Analytics Dashboard</h3>
-                    <div className="flex items-center space-x-2">
-                      <label className="text-sm font-medium text-gray-700">Time Period:</label>
-                      <Select
-                        value={analyticsDateRange}
-                        onChange={(e) => setAnalyticsDateRange(e.target.value)}
-                        className="w-auto"
-                      >
-                        <option value="7">Last 7 days</option>
-                        <option value="30">Last 30 days</option>
-                        <option value="90">Last 3 months</option>
-                        <option value="365">Last year</option>
-                      </Select>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Analytics Overview Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {analytics ? (
-                  <>
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center">
-                          <MessageSquare className="h-8 w-8 text-blue-500" />
-                          <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-600">Total Messages</p>
-                            <p className="text-2xl font-bold text-gray-900">{analytics.stats?.totalCommunications || 0}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center">
-                          <CheckCircle className="h-8 w-8 text-green-500" />
-                          <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-600">Success Rate</p>
-                            <p className="text-2xl font-bold text-green-600">
-                              {analytics.stats?.totalCommunications > 0 
-                                ? Math.round(((analytics.stats.sms.delivered + analytics.stats.voice.delivered) / analytics.stats.totalCommunications) * 100)
-                                : 0}%
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center">
-                          <Users className="h-8 w-8 text-purple-500" />
-                          <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-600">Active Patients</p>
-                            <p className="text-2xl font-bold text-purple-600">{patients.length}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center">
-                          <XCircle className="h-8 w-8 text-red-500" />
-                          <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-600">Failed Messages</p>
-                            <p className="text-2xl font-bold text-red-600">{(analytics.stats?.sms.failed || 0) + (analytics.stats?.voice.failed || 0)}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </>
-                ) : (
-                  Array.from({ length: 4 }).map((_, index) => (
-                    <Card key={index}>
-                      <CardContent className="p-6">
-                        <div className="animate-pulse">
-                          <div className="flex items-center">
-                            <div className="h-8 w-8 bg-gray-200 rounded"></div>
-                            <div className="ml-4 flex-1">
-                              <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-                              <div className="h-6 bg-gray-200 rounded w-16"></div>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-
-              {/* Message Type Breakdown */}
-              {analytics && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <BarChart3 className="mr-2 h-5 w-5" />
-                        Message Type Performance
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-                          <div className="flex items-center">
-                            <MessageSquare className="h-6 w-6 text-blue-500 mr-3" />
-                            <div>
-                              <p className="font-medium text-gray-900">SMS Messages</p>
-                              <p className="text-sm text-gray-600">{analytics.stats?.sms.total || 0} sent</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-blue-600">
-                              {analytics.successRates?.sms ? Math.round(analytics.successRates.sms) : 0}%
-                            </p>
-                            <p className="text-xs text-gray-500">Success Rate</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-                          <div className="flex items-center">
-                            <Phone className="h-6 w-6 text-green-500 mr-3" />
-                            <div>
-                              <p className="font-medium text-gray-900">Voice Calls</p>
-                              <p className="text-sm text-gray-600">{analytics.stats?.voice.total || 0} sent</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-green-600">
-                              {analytics.successRates?.voice ? Math.round(analytics.successRates.voice) : 0}%
-                            </p>
-                            <p className="text-xs text-gray-500">Success Rate</p>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <TrendingUp className="mr-2 h-5 w-5" />
-                        Top Communicating Patients
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {analytics.topPatients && analytics.topPatients.length > 0 ? (
-                          analytics.topPatients.slice(0, 5).map((patient, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
-                                  index === 0 ? 'bg-yellow-500' : 
-                                  index === 1 ? 'bg-gray-400' : 
-                                  index === 2 ? 'bg-orange-500' : 'bg-blue-500'
-                                }`}>
-                                  #{index + 1}
-                                </div>
-                                <div className="ml-3">
-                                  <p className="font-medium text-gray-900">{patient.name}</p>
-                                  <p className="text-sm text-gray-600">{patient.count} messages</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-gray-500 text-center py-4">No patient communication data available</p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              {/* Daily Activity Chart */}
-              {analytics && analytics.dailyStats && analytics.dailyStats.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Calendar className="mr-2 h-5 w-5" />
-                      Daily Activity (Last 7 Days)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {analytics.dailyStats.slice(-7).map((day, index) => {
-                        const total = day.sent + day.delivered + day.failed;
-                        const successPercentage = total > 0 ? (day.delivered / total) * 100 : 0;
-                        
-                        return (
-                          <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                            <div className="flex items-center space-x-4">
-                              <div className="text-sm font-medium text-gray-900 w-20">
-                                {new Date(day.date).toLocaleDateString('en-US', { 
-                                  month: 'short', 
-                                  day: 'numeric' 
-                                })}
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-6">
-                                  <div className="text-sm">
-                                    <span className="text-blue-600 font-medium">{day.sent}</span>
-                                    <span className="text-gray-500 ml-1">sent</span>
-                                  </div>
-                                  <div className="text-sm">
-                                    <span className="text-green-600 font-medium">{day.delivered}</span>
-                                    <span className="text-gray-500 ml-1">delivered</span>
-                                  </div>
-                                  <div className="text-sm">
-                                    <span className="text-red-600 font-medium">{day.failed}</span>
-                                    <span className="text-gray-500 ml-1">failed</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-sm font-medium text-gray-900">
-                                {successPercentage.toFixed(1)}% success
-                              </div>
-                              <div className="w-24 h-2 bg-gray-200 rounded-full mt-1">
-                                <div 
-                                  className="h-2 bg-green-500 rounded-full" 
-                                  style={{ width: `${successPercentage}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Recent Failures */}
-              {analytics && analytics.recentFailures && analytics.recentFailures.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <AlertTriangle className="mr-2 h-5 w-5 text-red-500" />
-                      Recent Failed Messages
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {analytics.recentFailures.slice(0, 5).map((failure, index) => (
-                        <div key={index} className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
-                          <div className="flex items-center space-x-3">
-                            {failure.type === 'SMS' ? (
-                              <MessageSquare className="h-5 w-5 text-red-500" />
-                            ) : (
-                              <Phone className="h-5 w-5 text-red-500" />
-                            )}
-                            <div>
-                              <p className="font-medium text-gray-900">{failure.patient}</p>
-                              <p className="text-sm text-gray-600">{failure.phoneNumber}</p>
-                              <p className="text-xs text-red-600">{failure.errorMessage}</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-gray-500">
-                              {failure.failedAt ? new Date(failure.failedAt).toLocaleString() : 'Unknown time'}
-                            </p>
-                          </div>
+        {activeTab === 'templates' && (
+          <div className="space-y-8">
+            {/* Add New Template */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Create New Template</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleAddTemplate} className="space-y-4">
+                  <Input
+                    label="Template Name"
+                    value={newTemplate.name}
+                    onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
+                    placeholder="e.g., Appointment Reminder"
+                    required
+                  />
+                  
+                  <Select
+                    label="Template Type"
+                    value={newTemplate.type}
+                    onChange={(e) => setNewTemplate({ ...newTemplate, type: e.target.value as 'SMS' | 'VOICE' })}
+                  >
+                    <option value="SMS">SMS Message</option>
+                    <option value="VOICE">Voice Call</option>
+                  </Select>
+                  
+                  <Textarea
+                    label="Template Content"
+                    value={newTemplate.content}
+                    onChange={(e) => setNewTemplate({ ...newTemplate, content: e.target.value })}
+                    placeholder="Enter your message template here. Use {firstName}, {lastName}, {appointmentDate}, {appointmentTime} for dynamic values."
+                    rows={4}
+                    required
+                  />
+                  
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                    <h4 className="text-sm font-medium text-blue-800 mb-2">Available Variables ({Object.keys(getAvailableTemplateVariables()).length} total):</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs max-h-48 overflow-y-auto">
+                      {Object.entries(getAvailableTemplateVariables()).map(([variable, description]) => (
+                        <div key={variable} className="flex items-start">
+                          <code className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-mono mr-2 whitespace-nowrap">
+                            {variable}
+                          </code>
+                          <span className="text-blue-700 text-xs">{description}</span>
                         </div>
                       ))}
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  </div>
+                  
+                  <Button type="submit" className="w-full">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Template
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
 
-              {/* Summary Insights */}
-              {analytics && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <TrendingUp className="mr-2 h-5 w-5" />
-                      Key Insights
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <div className="p-4 bg-blue-50 rounded-lg">
-                        <div className="flex items-center">
-                          <MessageSquare className="h-6 w-6 text-blue-500 mr-2" />
-                          <div>
-                            <p className="text-sm font-medium text-blue-900">Most Used Channel</p>
-                            <p className="text-lg font-bold text-blue-700">
-                              {(analytics.stats?.sms.total || 0) > (analytics.stats?.voice.total || 0) ? 'SMS' : 'Voice'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="p-4 bg-green-50 rounded-lg">
-                        <div className="flex items-center">
-                          <CheckCircle className="h-6 w-6 text-green-500 mr-2" />
-                          <div>
-                            <p className="text-sm font-medium text-green-900">Best Performance</p>
-                            <p className="text-lg font-bold text-green-700">
-                              {analytics.successRates?.sms > analytics.successRates?.voice ? 
-                                `SMS (${Math.round(analytics.successRates.sms)}%)` : 
-                                `Voice (${Math.round(analytics.successRates.voice)}%)`}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="p-4 bg-purple-50 rounded-lg">
-                        <div className="flex items-center">
-                          <Calendar className="h-6 w-6 text-purple-500 mr-2" />
-                          <div>
-                            <p className="text-sm font-medium text-purple-900">Analysis Period</p>
-                            <p className="text-lg font-bold text-purple-700">
-                              {analyticsDateRange} days
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Loading State */}
-              {!analytics && (
-                <Card>
-                  <CardContent className="p-8">
-                    <div className="text-center">
-                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                      <p className="text-gray-600">Loading comprehensive analytics...</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'settings' && (
-            <div className="space-y-8">
+            {/* Templates List */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* SMS Templates */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <Settings className="mr-2 h-5 w-5" />
-                    Messaging Settings
+                    <MessageSquare className="h-5 w-5 mr-2 text-green-500" />
+                    SMS Templates ({templates.filter(t => t.type === 'SMS').length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    {/* Current Mode Display */}
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Current Mode</h3>
-                      {settings ? (
-                        <>
-                          <div className="flex items-center">
-                            <div className={`w-3 h-3 rounded-full mr-3 ${
-                              settings.messagingMode === 'live' ? 'bg-green-400' : 'bg-yellow-400'
-                            }`}></div>
-                            <span className="text-sm font-medium">
-                              {settings.messagingMode === 'live' ? 'Live Mode' : 'Demo Mode'}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600 mt-2">
-                            {settings.messagingMode === 'live' 
-                              ? 'Messages are sent to real phone numbers via Twilio'
-                              : 'Messages are simulated for testing purposes'
-                            }
-                          </p>
-                        </>
-                      ) : (
-                        <div className="animate-pulse">
-                          <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
-                          <div className="h-3 bg-gray-200 rounded w-48"></div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Twilio Configuration */}
-                    <div className="border-t pt-6">
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">Twilio Configuration</h3>
-                      {settings ? (
-                        <>
-                          {settings.twilioConfigured ? (
-                            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                              <div className="flex items-center">
-                                <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                                <span className="text-sm font-medium text-green-800">
-                                  Twilio is properly configured and ready for live messaging!
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                              <div className="flex items-center">
-                                <AlertTriangle className="h-5 w-5 text-yellow-500 mr-2" />
-                                <span className="text-sm font-medium text-yellow-800">
-                                  Twilio credentials not configured. Currently in demo mode.
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Account SID
-                              </label>
-                              <div className={`p-3 rounded border ${
-                                settings.twilioConfigured ? 'bg-green-50 border-green-200' : 'bg-gray-100 border-gray-200'
-                              }`}>
-                                <code className={`text-sm ${
-                                  settings.twilioConfigured ? 'text-green-700' : 'text-gray-600'
-                                }`}>
-                                  {settings.twilioConfigured ? 
-                                    'AC****...configured ✓' : 
-                                    'Not configured'
-                                  }
-                                </code>
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Phone Number
-                              </label>
-                              <div className={`p-3 rounded border ${
-                                settings.twilioPhoneNumber ? 'bg-green-50 border-green-200' : 'bg-gray-100 border-gray-200'
-                              }`}>
-                                <code className={`text-sm ${
-                                  settings.twilioPhoneNumber ? 'text-green-700' : 'text-gray-600'
-                                }`}>
-                                  {settings.twilioPhoneNumber ? 
-                                    `${settings.twilioPhoneNumber} ✓` : 
-                                    'Not configured'
-                                  }
-                                </code>
-                              </div>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="animate-pulse grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-                            <div className="h-10 bg-gray-200 rounded"></div>
-                          </div>
-                          <div>
-                            <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-                            <div className="h-10 bg-gray-200 rounded"></div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Test Configuration */}
-                    {settings && settings.twilioConfigured && settings.messagingMode === 'live' && (
-                      <div className="border-t pt-6">
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Test Your Configuration</h3>
-                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <div className="flex items-start">
-                            <div className="flex-shrink-0">
-                              <Phone className="h-5 w-5 text-blue-500 mt-0.5" />
-                            </div>
-                            <div className="ml-3 flex-1">
-                              <p className="text-sm font-medium text-blue-900 mb-2">
-                                Ready to send real messages!
-                              </p>
-                              <p className="text-sm text-blue-700 mb-3">
-                                Your Twilio configuration is complete. Go to the Send Message tab to:
-                              </p>
-                              <ul className="text-sm text-blue-700 list-disc list-inside space-y-1">
-                                <li>Add a patient with your phone number</li>
-                                <li>Send yourself a test SMS message</li>
-                                <li>View the message in Communications History</li>
-                                <li>Check Analytics for delivery statistics</li>
-                              </ul>
-                              <div className="mt-4">
-                                <Button
-                                  onClick={() => setActiveTab('send')}
-                                  size="sm"
-                                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                                >
-                                  <Send className="mr-2 h-4 w-4" />
-                                  Go to Send Message
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                  <div className="space-y-4">
+                    {templates.filter(t => t.type === 'SMS').map((template) => (
+                      <div key={template.id} className="p-4 border border-gray-200 rounded-lg">
+                        <h4 className="font-medium text-gray-900 mb-2">{template.name}</h4>
+                        <p className="text-sm text-gray-600 line-clamp-3">{template.content}</p>
                       </div>
+                    ))}
+                    {templates.filter(t => t.type === 'SMS').length === 0 && (
+                      <p className="text-gray-500 text-center py-4">No SMS templates yet</p>
                     )}
+                  </div>
+                </CardContent>
+              </Card>
 
-                    {/* Instructions */}
-                    <div className="border-t pt-6">
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">How to Enable Live Messaging</h3>
-                      <div className="space-y-3 text-sm text-gray-600">
-                        <div className="flex items-start">
-                          <span className="flex w-6 h-6 bg-blue-100 text-blue-600 rounded-full text-xs items-center justify-center mr-3 mt-0.5">1</span>
-                          <div>
-                            <p className="font-medium">Sign up for Twilio</p>
-                            <p>Create a free account at <a href="https://www.twilio.com" target="_blank" className="text-blue-600 hover:underline">twilio.com</a></p>
-                          </div>
-                        </div>
-                        <div className="flex items-start">
-                          <span className="flex w-6 h-6 bg-blue-100 text-blue-600 rounded-full text-xs items-center justify-center mr-3 mt-0.5">2</span>
-                          <div>
-                            <p className="font-medium">Get your credentials</p>
-                            <p>Copy your Account SID, Auth Token, and get a phone number from the Twilio Console</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start">
-                          <span className="flex w-6 h-6 bg-blue-100 text-blue-600 rounded-full text-xs items-center justify-center mr-3 mt-0.5">3</span>
-                          <div>
-                            <p className="font-medium">Update environment file</p>
-                            <p>Add your Twilio credentials to the .env file and set MESSAGING_MODE=live</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start">
-                          <span className="flex w-6 h-6 bg-blue-100 text-blue-600 rounded-full text-xs items-center justify-center mr-3 mt-0.5">4</span>
-                          <div>
-                            <p className="font-medium">Restart the application</p>
-                            <p>Restart the development server to apply the new settings</p>
-                          </div>
-                        </div>
+              {/* Voice Templates */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Phone className="h-5 w-5 mr-2 text-purple-500" />
+                    Voice Templates ({templates.filter(t => t.type === 'VOICE').length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {templates.filter(t => t.type === 'VOICE').map((template) => (
+                      <div key={template.id} className="p-4 border border-gray-200 rounded-lg">
+                        <h4 className="font-medium text-gray-900 mb-2">{template.name}</h4>
+                        <p className="text-sm text-gray-600 line-clamp-3">{template.content}</p>
                       </div>
-                    </div>
-
-                    {/* Important Notes */}
-                    <div className="border-t pt-6">
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">Important Notes</h3>
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <div className="flex">
-                          <AlertTriangle className="h-5 w-5 text-yellow-400 mr-2 flex-shrink-0 mt-0.5" />
-                          <div className="text-sm text-yellow-800">
-                            <p className="font-medium mb-1">Live Mode Considerations:</p>
-                            <ul className="list-disc list-inside space-y-1">
-                              <li>Real messages will be sent to actual phone numbers</li>
-                              <li>Twilio charges apply for SMS and voice calls</li>
-                              <li>Ensure phone numbers are valid and properly formatted</li>
-                              <li>Consider setting up Twilio webhooks for delivery status updates</li>
-                              <li>Test with your own phone number first</li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    ))}
+                    {templates.filter(t => t.type === 'VOICE').length === 0 && (
+                      <p className="text-gray-500 text-center py-4">No voice templates yet</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             </div>
-          )}
-        </main>
-      </div>
+          </div>
+        )}
+
+        {activeTab === 'analytics' && (
+          <div className="space-y-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Communication Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Total Communications */}
+                  <div className="bg-blue-50 p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold text-blue-900">Total Communications</h3>
+                    <p className="text-3xl font-bold text-blue-700">{analytics?.stats.totalCommunications || 0}</p>
+                    <p className="text-sm text-blue-600 mt-2">All time messages sent</p>
+                  </div>
+
+                  {/* SMS Stats */}
+                  <div className="bg-green-50 p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold text-green-900">SMS Messages</h3>
+                    <p className="text-3xl font-bold text-green-700">{analytics?.stats.sms.total || 0}</p>
+                    <div className="text-sm text-green-600 mt-2">
+                      <p>Delivered: {analytics?.stats.sms.delivered || 0}</p>
+                      <p>Failed: {analytics?.stats.sms.failed || 0}</p>
+                      <p>Success Rate: {analytics?.successRates.sms || 0}%</p>
+                    </div>
+                  </div>
+
+                  {/* Voice Stats */}
+                  <div className="bg-purple-50 p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold text-purple-900">Voice Calls</h3>
+                    <p className="text-3xl font-bold text-purple-700">{analytics?.stats.voice.total || 0}</p>
+                    <div className="text-sm text-purple-600 mt-2">
+                      <p>Delivered: {analytics?.stats.voice.delivered || 0}</p>
+                      <p>Failed: {analytics?.stats.voice.failed || 0}</p>
+                      <p>Success Rate: {analytics?.successRates.voice || 0}%</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Activity Chart */}
+                {analytics?.dailyStats && analytics.dailyStats.length > 0 && (
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Daily Activity (Last 30 Days)</h3>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="grid grid-cols-7 gap-2 text-xs">
+                        {analytics.dailyStats.slice(-7).map((day, index) => (
+                          <div key={index} className="text-center">
+                            <div className="font-medium text-gray-600">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                            <div className="bg-blue-200 rounded mt-1" style={{ height: `${Math.max(20, (day.total / Math.max(...analytics.dailyStats.map(d => d.total), 1)) * 60)}px` }}>
+                              <div className="text-xs font-medium pt-1 text-blue-800">{day.total}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Top Patients */}
+                {analytics?.topPatients && analytics.topPatients.length > 0 && (
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Active Patients</h3>
+                    <div className="space-y-2">
+                      {analytics.topPatients.slice(0, 5).map((patient, index) => (
+                        <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <span className="font-medium text-gray-900">{patient.name}</span>
+                          <span className="text-sm text-gray-600">{patient.count} messages</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent Failures */}
+                {analytics?.recentFailures && analytics.recentFailures.length > 0 && (
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold text-red-900 mb-4">Recent Failures</h3>
+                    <div className="space-y-2">
+                      {analytics.recentFailures.slice(0, 3).map((failure, index) => (
+                        <div key={index} className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <div className="font-medium text-red-800">{failure.patient}</div>
+                          <div className="text-sm text-red-600">{failure.type} to {failure.phoneNumber}</div>
+                          <div className="text-xs text-red-500">{failure.errorMessage}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Refresh Button */}
+                <div className="mt-8">
+                  <Button
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/analytics');
+                        if (res.ok) {
+                          const data = await res.json();
+                          setAnalytics(data);
+                          addNotification('success', 'Analytics refreshed');
+                        }
+                      } catch (error) {
+                        console.error('Error refreshing analytics:', error);
+                        addNotification('error', 'Failed to refresh analytics');
+                      }
+                    }}
+                    variant="outline"
+                  >
+                    Refresh Analytics
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'groups' && (
+          <div className="space-y-8">
+            {/* Create New Group */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Create Patient Group</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Group Name</label>
+                    <Input
+                      value={newGroup.name}
+                      onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })}
+                      placeholder="e.g., Diabetes Patients"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Color</label>
+                    <Input
+                      type="color"
+                      value={newGroup.color}
+                      onChange={(e) => setNewGroup({ ...newGroup, color: e.target.value })}
+                      className="w-20"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Description</label>
+                  <Textarea
+                    value={newGroup.description}
+                    onChange={(e) => setNewGroup({ ...newGroup, description: e.target.value })}
+                    placeholder="Optional description for this group"
+                    rows={2}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Add Patients to Group</label>
+                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
+                    {patients.map((patient) => (
+                      <label key={patient.id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={newGroup.patientIds.includes(patient.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewGroup({
+                                ...newGroup,
+                                patientIds: [...newGroup.patientIds, patient.id]
+                              });
+                            } else {
+                              setNewGroup({
+                                ...newGroup,
+                                patientIds: newGroup.patientIds.filter(id => id !== patient.id)
+                              });
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm text-gray-900">
+                          {patient.firstName} {patient.lastName} ({patient.phoneNumber})
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleCreateGroup}
+                  disabled={!newGroup.name.trim() || creatingGroup}
+                  variant="primary"
+                >
+                  {creatingGroup ? 'Creating...' : 'Create Group'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Existing Groups */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Patient Groups</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {patientGroups.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">No patient groups created yet.</p>
+                  ) : (
+                    patientGroups.map((group) => (
+                      <div key={group.id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div 
+                              className="w-4 h-4 rounded-full" 
+                              style={{ backgroundColor: group.color }}
+                            ></div>
+                            <div>
+                              <h3 className="font-medium text-gray-900">{group.name}</h3>
+                              {group.description && (
+                                <p className="text-sm text-gray-600">{group.description}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <span className="text-sm text-gray-500">
+                              {group._count.patients} patients
+                            </span>
+                            <Button
+                              onClick={() => {
+                                // Quick bulk message to group
+                                setSelectedGroups([group.id]);
+                                setActiveTab('bulk');
+                              }}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Message Group
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {group.patients.length > 0 && (
+                          <div className="mt-4">
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Patients:</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {group.patients.slice(0, 6).map((member) => (
+                                <div key={member.id} className="text-sm text-gray-900">
+                                  {member.patient.firstName} {member.patient.lastName}
+                                </div>
+                              ))}
+                              {group.patients.length > 6 && (
+                                <div className="text-sm text-gray-500">
+                                  ... and {group.patients.length - 6} more
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <SettingsTab 
+            settings={settings}
+            fetchSettingsAction={fetchSettingsAction}
+            setActiveTabAction={setActiveTabAction}
+          />
+        )}
+      </main>
+    </div>
     </AuthWrapper>
   );
 }
