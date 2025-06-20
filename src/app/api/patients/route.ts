@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           message: 'Validation failed',
-          errors: { phoneNumber: 'Invalid phone number format for your region' }
+          errors: { phoneNumber: 'Phone number must start with + followed by country code and 10-14 digits (e.g., +1234567890)' }
         },
         { status: 400 }
       );
