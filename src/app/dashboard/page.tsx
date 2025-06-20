@@ -13,6 +13,9 @@ import {
   OverviewTab,
   SettingsTab
 } from '@/components/dashboard';
+import { GlobalSearch, AdvancedFilters } from '@/components/search';
+import { useAdvancedSearch } from '@/hooks/useAdvancedSearch';
+import { PaginatedTable, TableColumn } from '@/components/ui/PaginatedTable';
 
 interface Patient {
   id: string;
@@ -26,6 +29,7 @@ interface Patient {
     appointments: number;
     communications: number;
   };
+  [key: string]: unknown;
 }
 
 interface Template {
@@ -33,6 +37,7 @@ interface Template {
   name: string;
   type: 'SMS' | 'VOICE';
   content: string;
+  [key: string]: unknown;
 }
 
 interface Communication {
@@ -53,6 +58,7 @@ interface Communication {
     id: string;
     name: string;
   };
+  [key: string]: unknown;
 }
 
 interface PatientGroup {
@@ -106,7 +112,190 @@ export default function Dashboard() {
     twilioConfigured: boolean;
     twilioPhoneNumber: string | null;
   } | null>(null);
+  
+  // Search queries for individual tables
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
+  const [communicationSearchQuery, setCommunicationSearchQuery] = useState('');
+  const [templateSearchQuery, setTemplateSearchQuery] = useState('');
+  
   const { addNotification } = useNotification();
+
+  // Advanced Search & Filtering
+  const search = useAdvancedSearch();
+
+  // Table column definitions
+  const patientColumns: TableColumn<Patient>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (patient) => (
+        <div>
+          <div className="font-medium text-gray-900">
+            {patient.firstName} {patient.lastName}
+          </div>
+          <div className="text-sm text-gray-500">{patient.phoneNumber}</div>
+          {patient.email && (
+            <div className="text-sm text-gray-500">{patient.email}</div>
+          )}
+        </div>
+      ),
+      width: '25%'
+    },
+    {
+      key: 'preferences',
+      header: 'Preferences',
+      render: (patient) => (
+        <div className="flex flex-wrap gap-1">
+          {patient.smsEnabled && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              SMS
+            </span>
+          )}
+          {patient.voiceEnabled && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              Voice
+            </span>
+          )}
+        </div>
+      ),
+      width: '20%'
+    },
+    {
+      key: 'stats',
+      header: 'Activity',
+      render: (patient) => (
+        <div className="text-sm text-gray-500">
+          {patient._count ? (
+            <>
+              <div>{patient._count.appointments} appointments</div>
+              <div>{patient._count.communications} messages</div>
+            </>
+          ) : (
+            'No activity'
+          )}
+        </div>
+      ),
+      width: '20%'
+    }
+  ];
+
+  // Communication columns for table
+  const communicationColumns: TableColumn<Communication>[] = [
+    {
+      key: 'type',
+      header: 'Type',
+      render: (comm) => (
+        <div className="flex items-center space-x-2">
+          {comm.type === 'SMS' ? (
+            <MessageSquare className="h-4 w-4 text-green-500" />
+          ) : (
+            <Phone className="h-4 w-4 text-purple-500" />
+          )}
+          <span className="text-sm font-medium">{comm.type}</span>
+        </div>
+      ),
+      width: '10%'
+    },
+    {
+      key: 'patient',
+      header: 'Patient',
+      render: (comm) => (
+        <div>
+          <div className="font-medium text-gray-900">
+            {comm.patient.firstName} {comm.patient.lastName}
+          </div>
+          <div className="text-sm text-gray-500">{comm.patient.phoneNumber}</div>
+        </div>
+      ),
+      width: '25%'
+    },
+    {
+      key: 'content',
+      header: 'Message',
+      render: (comm) => (
+        <div>
+          <p className="text-sm text-gray-700 line-clamp-2">{comm.content}</p>
+          {comm.template && (
+            <p className="text-xs text-gray-500 mt-1">Template: {comm.template.name}</p>
+          )}
+        </div>
+      ),
+      width: '40%'
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (comm) => (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            comm.status === 'DELIVERED'
+              ? 'bg-green-100 text-green-800'
+              : comm.status === 'SENT'
+              ? 'bg-blue-100 text-blue-800'
+              : comm.status === 'FAILED'
+              ? 'bg-red-100 text-red-800'
+              : 'bg-yellow-100 text-yellow-800'
+          }`}
+        >
+          {comm.status}
+        </span>
+      ),
+      width: '12%'
+    },
+    {
+      key: 'timestamp',
+      header: 'Date',
+      render: (comm) => (
+        <div className="text-xs text-gray-500">
+          {comm.deliveredAt && (
+            <p>Delivered: {new Date(comm.deliveredAt).toLocaleDateString()}</p>
+          )}
+          {comm.sentAt && !comm.deliveredAt && (
+            <p>Sent: {new Date(comm.sentAt).toLocaleDateString()}</p>
+          )}
+          {comm.failedAt && (
+            <p>Failed: {new Date(comm.failedAt).toLocaleDateString()}</p>
+          )}
+        </div>
+      ),
+      width: '13%'
+    }
+  ];
+
+  // Template columns for table
+  const templateColumns: TableColumn<Template>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (template) => (
+        <div className="font-medium text-gray-900">{template.name}</div>
+      ),
+      width: '25%'
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      render: (template) => (
+        <div className="flex items-center space-x-2">
+          {template.type === 'SMS' ? (
+            <MessageSquare className="h-4 w-4 text-green-500" />
+          ) : (
+            <Phone className="h-4 w-4 text-purple-500" />
+          )}
+          <span className="text-sm">{template.type}</span>
+        </div>
+      ),
+      width: '15%'
+    },
+    {
+      key: 'content',
+      header: 'Content',
+      render: (template) => (
+        <p className="text-sm text-gray-600 line-clamp-3">{template.content}</p>
+      ),
+      width: '60%'
+    }
+  ];
 
   // Bulk messaging state
   const [selectedPatients, setSelectedPatients] = useState<string[]>([]);
@@ -609,8 +798,8 @@ export default function Dashboard() {
   };
 
   const validatePhoneNumber = (phone: string) => {
-    // Basic validation: should be at least +1 followed by 10 digits
-    const phoneRegex = /^\+[1-9]\d{10,14}$/;
+    // Basic validation: should start with + followed by 1-3 digit country code and 7-15 total digits
+    const phoneRegex = /^\+[1-9]\d{7,15}$/;
     return phoneRegex.test(phone);
   };
 
@@ -874,6 +1063,32 @@ export default function Dashboard() {
             </nav>
           </div>
         </div>
+
+        {/* Global Search */}
+        <div className="bg-gray-50 border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex justify-center">
+              <GlobalSearch
+                onSearch={search.performSearch}
+                onFiltersToggle={search.toggleAdvancedFilters}
+                filters={search.filters}
+                hasActiveFilters={search.hasActiveFilters}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Advanced Filters Modal */}
+        <AdvancedFilters
+          filters={search.filters}
+          onFiltersChange={search.updateFilters}
+          onSavePreset={search.savePreset}
+          onLoadPreset={search.loadPreset}
+          onDeletePreset={search.deletePreset}
+          savedPresets={search.savedPresets}
+          isOpen={search.showAdvancedFilters}
+          onClose={search.toggleAdvancedFilters}
+        />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'dashboard' && (
@@ -1246,271 +1461,159 @@ export default function Dashboard() {
 
         {activeTab === 'patients' && (
           <div className="space-y-8">
-            {/* Add New Patient Button */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Patient Management</span>
-                  <Button onClick={openAddPatientModal} variant="primary">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add New Patient
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-            </Card>
+            {/* Patients Header */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Patient Management</h2>
+              <Button onClick={openAddPatientModal} variant="primary">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Patient
+              </Button>
+            </div>
 
-            {/* Patients List */}
+            {/* Patient Search */}
             <Card>
-              <CardHeader>
-                <CardTitle>All Patients ({patients.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {patients.map((patient) => (
-                    <div key={patient.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">
-                          {patient.firstName} {patient.lastName}
-                        </h4>
-                        <p className="text-sm text-gray-600">{patient.phoneNumber}</p>
-                        {patient.email && (
-                          <p className="text-sm text-gray-600">{patient.email}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="flex space-x-2">
-                          {patient.smsEnabled && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              SMS Enabled
-                            </span>
-                          )}
-                          {patient.voiceEnabled && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              Voice Enabled
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {patient._count && (
-                            <span>
-                              {patient._count.appointments} appointments, {patient._count.communications} messages
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openEditPatientModal(patient)}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeletePatient(patient.id, `${patient.firstName} ${patient.lastName}`)}
-                            className="text-red-600 hover:text-red-700 hover:border-red-300"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {patients.length === 0 && (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 mb-4">No patients added yet.</p>
-                      <Button onClick={openAddPatientModal} variant="primary">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Your First Patient
-                      </Button>
-                    </div>
-                  )}
-                </div>
+              <CardContent className="p-4">
+                <Input
+                  type="text"
+                  placeholder="Search patients by name, phone, or email..."
+                  value={patientSearchQuery}
+                  onChange={(e) => setPatientSearchQuery(e.target.value)}
+                  className="w-full"
+                />
               </CardContent>
             </Card>
+
+            {/* Patients Table */}
+            <PaginatedTable<Patient>
+              data={patients}
+              columns={patientColumns}
+              title={`All Patients (${patients.length})`}
+              itemsPerPage={10}
+              searchQuery={patientSearchQuery}
+              emptyMessage="No patients added yet."
+              actions={(patient) => (
+                <div className="flex space-x-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openEditPatientModal(patient)}
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDeletePatient(patient.id, `${patient.firstName} ${patient.lastName}`)}
+                    className="text-red-600 hover:text-red-700 hover:border-red-300"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              headerActions={
+                patients.length === 0 ? (
+                  <Button onClick={openAddPatientModal} variant="primary" size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Your First Patient
+                  </Button>
+                ) : null
+              }
+            />
           </div>
         )}
 
         {activeTab === 'history' && (
           <div className="space-y-8">
+            {/* Communication History Header */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Communication History</h2>
+            </div>
+
+            {/* Communication Search */}
             <Card>
-              <CardHeader>
-                <CardTitle>Communication History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {communications.length === 0 ? (
-                    <p className="text-gray-500 text-center py-8">No communications sent yet.</p>
-                  ) : (
-                    communications.map((comm) => (
-                      <div key={comm.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            {comm.type === 'SMS' ? (
-                              <MessageSquare className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <Phone className="h-4 w-4 text-purple-500" />
-                            )}
-                            <h4 className="font-medium text-gray-900">
-                              {comm.patient.firstName} {comm.patient.lastName}
-                            </h4>
-                          </div>
-                          <p className="text-sm text-gray-600 mt-1">{comm.patient.phoneNumber}</p>
-                          <p className="text-sm text-gray-700 mt-2 line-clamp-2">{comm.content}</p>
-                          {comm.template && (
-                            <p className="text-xs text-gray-500 mt-1">Template: {comm.template.name}</p>
-                          )}
-                        </div>
-                        <div className="flex flex-col items-end space-y-2">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              comm.status === 'DELIVERED'
-                                ? 'bg-green-100 text-green-800'
-                                : comm.status === 'SENT'
-                                ? 'bg-blue-100 text-blue-800'
-                                : comm.status === 'FAILED'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}
-                          >
-                            {comm.status}
-                          </span>
-                          <div className="text-xs text-gray-500">
-                            {comm.deliveredAt && (
-                              <p>Delivered: {new Date(comm.deliveredAt).toLocaleString()}</p>
-                            )}
-                            {comm.sentAt && !comm.deliveredAt && (
-                              <p>Sent: {new Date(comm.sentAt).toLocaleString()}</p>
-                            )}
-                            {comm.failedAt && (
-                              <p>Failed: {new Date(comm.failedAt).toLocaleString()}</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+              <CardContent className="p-4">
+                <Input
+                  type="text"
+                  placeholder="Search communications by patient name, content, or status..."
+                  value={communicationSearchQuery}
+                  onChange={(e) => setCommunicationSearchQuery(e.target.value)}
+                  className="w-full"
+                />
               </CardContent>
             </Card>
+
+            {/* Communications Table */}
+            <PaginatedTable<Communication>
+              data={communications}
+              columns={communicationColumns}
+              title={`Communications (${communications.length})`}
+              itemsPerPage={10}
+              searchQuery={communicationSearchQuery}
+              emptyMessage="No communications sent yet."
+            />
           </div>
         )}
 
         {activeTab === 'templates' && (
           <div className="space-y-8">
             {/* Template Management Header */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Template Management</h2>
+              <Button onClick={openAddTemplateModal} variant="primary">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Template
+              </Button>
+            </div>
+
+            {/* Template Search */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Template Management</span>
-                  <Button onClick={openAddTemplateModal} variant="primary">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add New Template
-                  </Button>
-                </CardTitle>
-              </CardHeader>
+              <CardContent className="p-4">
+                <Input
+                  type="text"
+                  placeholder="Search templates by name, type, or content..."
+                  value={templateSearchQuery}
+                  onChange={(e) => setTemplateSearchQuery(e.target.value)}
+                  className="w-full"
+                />
+              </CardContent>
             </Card>
 
-            {/* Templates List */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* SMS Templates */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <MessageSquare className="h-5 w-5 mr-2 text-green-500" />
-                    SMS Templates ({templates.filter(t => t.type === 'SMS').length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {templates.filter(t => t.type === 'SMS').map((template) => (
-                      <div key={template.id} className="flex items-start justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 mb-2">{template.name}</h4>
-                          <p className="text-sm text-gray-600 line-clamp-3">{template.content}</p>
-                        </div>
-                        <div className="flex space-x-2 ml-4">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openEditTemplateModal(template)}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeleteTemplate(template.id, template.name)}
-                            className="text-red-600 hover:text-red-700 hover:border-red-300"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    {templates.filter(t => t.type === 'SMS').length === 0 && (
-                      <div className="text-center py-8">
-                        <p className="text-gray-500 mb-4">No SMS templates yet.</p>
-                        <Button onClick={openAddTemplateModal} variant="primary">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Create Your First SMS Template
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Voice Templates */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Phone className="h-5 w-5 mr-2 text-purple-500" />
-                    Voice Templates ({templates.filter(t => t.type === 'VOICE').length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {templates.filter(t => t.type === 'VOICE').map((template) => (
-                      <div key={template.id} className="flex items-start justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 mb-2">{template.name}</h4>
-                          <p className="text-sm text-gray-600 line-clamp-3">{template.content}</p>
-                        </div>
-                        <div className="flex space-x-2 ml-4">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openEditTemplateModal(template)}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeleteTemplate(template.id, template.name)}
-                            className="text-red-600 hover:text-red-700 hover:border-red-300"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    {templates.filter(t => t.type === 'VOICE').length === 0 && (
-                      <div className="text-center py-8">
-                        <p className="text-gray-500 mb-4">No voice templates yet.</p>
-                        <Button onClick={openAddTemplateModal} variant="primary">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Create Your First Voice Template
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Templates Table */}
+            <PaginatedTable<Template>
+              data={templates}
+              columns={templateColumns}
+              title={`All Templates (${templates.length})`}
+              itemsPerPage={10}
+              searchQuery={templateSearchQuery}
+              emptyMessage="No templates created yet."
+              actions={(template) => (
+                <div className="flex space-x-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openEditTemplateModal(template)}
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDeleteTemplate(template.id, template.name)}
+                    className="text-red-600 hover:text-red-700 hover:border-red-300"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              headerActions={
+                templates.length === 0 ? (
+                  <Button onClick={openAddTemplateModal} variant="primary" size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Your First Template
+                  </Button>
+                ) : null
+              }
+            />
           </div>
         )}
 

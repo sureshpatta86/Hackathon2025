@@ -92,7 +92,8 @@ export async function makeVoiceCall(to: string, message: string) {
 // Helper functions for phone number validation and formatting
 export function isValidPhoneNumber(phoneNumber: string): boolean {
   // Basic validation for international phone numbers
-  const phoneRegex = /^\+[1-9]\d{1,14}$/;
+  // Must start with + followed by 1-3 digit country code and at least 7 digits total
+  const phoneRegex = /^\+[1-9]\d{7,15}$/;
   return phoneRegex.test(phoneNumber);
 }
 
