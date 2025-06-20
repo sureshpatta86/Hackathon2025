@@ -51,3 +51,13 @@ option {
   color: #111827 !important;
   background-color: #ffffff !important;
 }
+
+/* Hide scrollbars for horizontal scrolling containers */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}

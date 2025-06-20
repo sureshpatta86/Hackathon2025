@@ -53,9 +53,15 @@ export default function OverviewTab({ patients, templates, communications }: Ove
 
   return (
     <div className="space-y-8">
+      {/* Welcome Message */}
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white">
+        <h1 className="text-2xl font-bold mb-2">Welcome to HealthComm Dashboard</h1>
+        <p className="text-blue-100">Manage your patient communications efficiently and effectively.</p>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center">
               <Users className="h-8 w-8 text-blue-500" />
@@ -67,7 +73,7 @@ export default function OverviewTab({ patients, templates, communications }: Ove
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center">
               <MessageSquare className="h-8 w-8 text-green-500" />
@@ -79,7 +85,7 @@ export default function OverviewTab({ patients, templates, communications }: Ove
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center">
               <BarChart3 className="h-8 w-8 text-purple-500" />
@@ -91,7 +97,7 @@ export default function OverviewTab({ patients, templates, communications }: Ove
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center">
               <Clock className="h-8 w-8 text-orange-500" />
@@ -107,12 +113,15 @@ export default function OverviewTab({ patients, templates, communications }: Ove
       {/* Recent Activity */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Communications</CardTitle>
+          <CardTitle className="flex items-center space-x-2">
+            <MessageSquare className="h-5 w-5" />
+            <span>Recent Communications</span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {communications.slice(0, 5).map((comm) => (
-              <div key={comm.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div key={comm.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                 <div className="flex items-center space-x-3">
                   {comm.type === 'SMS' ? (
                     <MessageSquare className="h-5 w-5 text-blue-500" />
@@ -127,7 +136,7 @@ export default function OverviewTab({ patients, templates, communications }: Ove
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
+                  <span className={`px-2 py-1 text-xs rounded-full font-medium ${
                     comm.status === 'DELIVERED' 
                       ? 'bg-green-100 text-green-800'
                       : comm.status === 'FAILED'
@@ -146,7 +155,11 @@ export default function OverviewTab({ patients, templates, communications }: Ove
             ))}
             
             {communications.length === 0 && (
-              <p className="text-gray-500 text-center py-8">No communications yet.</p>
+              <div className="text-center py-8">
+                <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">No communications yet.</p>
+                <p className="text-sm text-gray-400 mt-1">Start sending messages to see activity here.</p>
+              </div>
             )}
           </div>
         </CardContent>

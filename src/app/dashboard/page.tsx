@@ -672,7 +672,7 @@ export default function Dashboard() {
       });
       
       if (response.ok) {
-        const result = await response.json();
+        await response.json();
         addNotification('success', `Group ${isEditing ? 'updated' : 'created'} successfully!`);
         closePatientGroupModal();
         fetchData();
@@ -798,11 +798,12 @@ export default function Dashboard() {
         {/* Tab Navigation */}
         <div className="bg-white border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex space-x-2 overflow-x-auto py-4">
+            <nav className="flex flex-wrap sm:flex-nowrap gap-2 overflow-x-auto py-4 scrollbar-hide">
               <Button
                 variant={activeTab === 'dashboard' ? 'primary' : 'outline'}
                 onClick={() => setActiveTab('dashboard')}
                 size="sm"
+                className="flex-shrink-0"
               >
                 Dashboard
               </Button>
@@ -810,6 +811,7 @@ export default function Dashboard() {
                 variant={activeTab === 'send' ? 'primary' : 'outline'}
                 onClick={() => setActiveTab('send')}
                 size="sm"
+                className="flex-shrink-0"
               >
                 Send
               </Button>
@@ -817,6 +819,7 @@ export default function Dashboard() {
                 variant={activeTab === 'bulk' ? 'primary' : 'outline'}
                 onClick={() => setActiveTab('bulk')}
                 size="sm"
+                className="flex-shrink-0"
               >
                 Bulk
               </Button>
@@ -824,6 +827,7 @@ export default function Dashboard() {
                 variant={activeTab === 'patients' ? 'primary' : 'outline'}
                 onClick={() => setActiveTab('patients')}
                 size="sm"
+                className="flex-shrink-0"
               >
                 Patients
               </Button>
@@ -831,6 +835,7 @@ export default function Dashboard() {
                 variant={activeTab === 'groups' ? 'primary' : 'outline'}
                 onClick={() => setActiveTab('groups')}
                 size="sm"
+                className="flex-shrink-0"
               >
                 Groups
               </Button>
@@ -838,6 +843,7 @@ export default function Dashboard() {
                 variant={activeTab === 'analytics' ? 'primary' : 'outline'}
                 onClick={() => setActiveTab('analytics')}
                 size="sm"
+                className="flex-shrink-0"
               >
                 Analytics
               </Button>
@@ -845,6 +851,7 @@ export default function Dashboard() {
                 variant={activeTab === 'templates' ? 'primary' : 'outline'}
                 onClick={() => setActiveTab('templates')}
                 size="sm"
+                className="flex-shrink-0"
               >
                 Templates
               </Button>
@@ -852,6 +859,7 @@ export default function Dashboard() {
                 variant={activeTab === 'history' ? 'primary' : 'outline'}
                 onClick={() => setActiveTab('history')}
                 size="sm"
+                className="flex-shrink-0"
               >
                 History
               </Button>
@@ -859,6 +867,7 @@ export default function Dashboard() {
                 variant={activeTab === 'settings' ? 'primary' : 'outline'}
                 onClick={() => setActiveTab('settings')}
                 size="sm"
+                className="flex-shrink-0"
               >
                 Settings
               </Button>
