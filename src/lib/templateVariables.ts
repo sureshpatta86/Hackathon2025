@@ -118,6 +118,7 @@ function formatDateTime(date: Date): string {
 }
 
 // Helper function to get available template variables
+// Updated with expanded variable set - v2.0
 export function getAvailableTemplateVariables(): Record<string, string> {
   return {
     // Patient variables
@@ -126,6 +127,13 @@ export function getAvailableTemplateVariables(): Record<string, string> {
     '{fullName}': 'Patient\'s full name',
     '{phoneNumber}': 'Patient\'s phone number',
     '{email}': 'Patient\'s email address',
+    '{patientId}': 'Patient\'s unique ID number',
+    '{age}': 'Patient\'s age',
+    '{dateOfBirth}': 'Patient\'s date of birth',
+    '{gender}': 'Patient\'s gender',
+    '{address}': 'Patient\'s address',
+    '{emergencyContact}': 'Emergency contact person',
+    '{emergencyPhone}': 'Emergency contact phone number',
     
     // Appointment variables
     '{appointmentDate}': 'Appointment date (e.g., Monday, June 20, 2025)',
@@ -133,10 +141,34 @@ export function getAvailableTemplateVariables(): Record<string, string> {
     '{appointmentDateTime}': 'Full appointment date and time',
     '{appointmentTitle}': 'Appointment title/type',
     '{appointmentDescription}': 'Appointment description',
+    '{appointmentDuration}': 'Appointment duration (e.g., 30 minutes)',
+    '{appointmentLocation}': 'Appointment location/room',
+    '{appointmentStatus}': 'Appointment status (scheduled, confirmed, etc.)',
+    '{appointmentId}': 'Unique appointment ID',
+    '{nextAppointment}': 'Next scheduled appointment date',
+    '{lastAppointment}': 'Last appointment date',
     
     // Clinic variables
     '{clinicName}': 'Clinic or practice name',
     '{providerName}': 'Healthcare provider name',
     '{clinicPhone}': 'Clinic phone number',
+    '{clinicEmail}': 'Clinic email address',
+    '{clinicAddress}': 'Clinic physical address',
+    '{clinicWebsite}': 'Clinic website URL',
+    '{officeHours}': 'Clinic office hours',
+    '{departmentName}': 'Specific department name',
+    '{receptionistName}': 'Front desk receptionist name',
+    
+    // Additional utility variables
+    '{currentDate}': 'Today\'s date',
+    '{currentTime}': 'Current time',
+    '{dayOfWeek}': 'Current day of the week',
+    '{month}': 'Current month name',
+    '{year}': 'Current year',
+    '{greeting}': 'Time-appropriate greeting (Good morning/afternoon/evening)',
+    '{urgency}': 'Message urgency level (Normal, Urgent, Emergency)',
+    '{confirmationCode}': 'Appointment confirmation code',
+    '{rescheduleLink}': 'Link to reschedule appointment',
+    '{cancelLink}': 'Link to cancel appointment',
   };
 }
