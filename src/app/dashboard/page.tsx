@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Select, Textarea } from '@/components/ui/form';
 import { useNotification } from '@/components/ui/notification';
 import { getAvailableTemplateVariables } from '@/lib/templateVariables';
-import { MessageSquare, Phone, Send, Plus } from 'lucide-react';
+import { MessageSquare, Phone, Send, Plus, Edit2, Trash2, X } from 'lucide-react';
 import {
   OverviewTab,
   SettingsTab
@@ -121,8 +121,10 @@ export default function Dashboard() {
   const [customMessage, setCustomMessage] = useState('');
   const [sending, setSending] = useState(false);
   
-  // Patient form
-  const [newPatient, setNewPatient] = useState({
+  // Patient modal state
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
+  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  const [patientModalData, setPatientModalData] = useState({
     firstName: '',
     lastName: '',
     phoneNumber: '',
@@ -131,13 +133,15 @@ export default function Dashboard() {
     voiceEnabled: true,
   });
 
-  // Template form
-  const [newTemplate, setNewTemplate] = useState({
+  // Template modal state
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [templateModalData, setTemplateModalData] = useState({
     name: '',
     type: 'SMS' as 'SMS' | 'VOICE',
     content: '',
   });
-
+  
   // CSV import state
   const [csvData, setCsvData] = useState('');
   const [skipHeader, setSkipHeader] = useState(true);
@@ -149,14 +153,15 @@ export default function Dashboard() {
     errors: string[];
   } | null>(null);
 
-  // Group management state
-  const [newGroup, setNewGroup] = useState({
+  // Patient Group modal state
+  const [isPatientGroupModalOpen, setIsPatientGroupModalOpen] = useState(false);
+  const [editingPatientGroup, setEditingPatientGroup] = useState<PatientGroup | null>(null);
+  const [patientGroupModalData, setPatientGroupModalData] = useState({
     name: '',
     description: '',
     color: '#3B82F6',
     patientIds: [] as string[],
   });
-  const [creatingGroup, setCreatingGroup] = useState(false);
   
   useEffect(() => {
     fetchData();
@@ -230,65 +235,6 @@ export default function Dashboard() {
       addNotification('error', 'Failed to send message');
     } finally {
       setSending(false);
-    }
-  };
-
-  const handleAddPatient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      const response = await fetch('/api/patients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newPatient),
-      });
-      
-      if (response.ok) {
-        addNotification('success', 'Patient added successfully!');
-        setNewPatient({
-          firstName: '',
-          lastName: '',
-          phoneNumber: '',
-          email: '',
-          smsEnabled: true,
-          voiceEnabled: true,
-        });
-        fetchData();
-      } else {
-        const error = await response.json();
-        addNotification('error', `Error: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('Error adding patient:', error);
-      addNotification('error', 'Failed to add patient');
-    }
-  };
-
-  const handleAddTemplate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      const response = await fetch('/api/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTemplate),
-      });
-      
-      if (response.ok) {
-        addNotification('success', 'Template created successfully!');
-        setNewTemplate({
-          name: '',
-          type: 'SMS',
-          content: '',
-        });
-        fetchData();
-      } else {
-        const error = await response.json();
-        addNotification('error', `Error: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('Error creating template:', error);
-      addNotification('error', 'Failed to create template');
     }
   };
 
@@ -398,44 +344,404 @@ export default function Dashboard() {
     }
   };
 
-  const handleCreateGroup = async () => {
-    if (!newGroup.name.trim()) {
-      addNotification('error', 'Group name is required');
+  // Patient modal handler functions
+  const openAddPatientModal = () => {
+    setEditingPatient(null);
+    setPatientModalData({
+      firstName: '',
+      lastName: '',
+      phoneNumber: '',
+      email: '',
+      smsEnabled: true,
+      voiceEnabled: true,
+    });
+    setIsPatientModalOpen(true);
+  };
+
+  const openEditPatientModal = (patient: Patient) => {
+    setEditingPatient(patient);
+    setPatientModalData({
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      phoneNumber: patient.phoneNumber,
+      email: patient.email || '',
+      smsEnabled: patient.smsEnabled,
+      voiceEnabled: patient.voiceEnabled,
+    });
+    setIsPatientModalOpen(true);
+  };
+
+  const closePatientModal = () => {
+    setIsPatientModalOpen(false);
+    setEditingPatient(null);
+    setPatientModalData({
+      firstName: '',
+      lastName: '',
+      phoneNumber: '',
+      email: '',
+      smsEnabled: true,
+      voiceEnabled: true,
+    });
+  };
+
+  const handleSavePatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Client-side validation
+    if (!validatePhoneNumber(patientModalData.phoneNumber)) {
+      addNotification('error', 'Please enter a valid phone number with country code (e.g., +1234567890)');
       return;
     }
-
-    setCreatingGroup(true);
+    
     try {
-      const response = await fetch('/api/patient-groups', {
-        method: 'POST',
+      const isEditing = editingPatient !== null;
+      const url = isEditing ? `/api/patients/${editingPatient.id}` : '/api/patients';
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newGroup.name,
-          description: newGroup.description || null,
-          color: newGroup.color,
-          patientIds: newGroup.patientIds,
-        }),
+        body: JSON.stringify(patientModalData),
       });
-
+      
       if (response.ok) {
-        const result = await response.json();
-        addNotification('success', `Group "${result.name}" created successfully!`);
-        setNewGroup({
-          name: '',
-          description: '',
-          color: '#3B82F6',
-          patientIds: [],
-        });
-        fetchData(); // Refresh groups
+        addNotification('success', `Patient ${isEditing ? 'updated' : 'added'} successfully!`);
+        closePatientModal();
+        fetchData();
+      } else {
+        const error = await response.json();
+        
+        // Handle different error response formats
+        let errorMessage = 'An error occurred';
+        
+        if (error.errors) {
+          // Validation errors from Zod or custom validation
+          const errorMessages = Object.entries(error.errors)
+            .map(([field, message]) => `${field}: ${message}`)
+            .join(', ');
+          errorMessage = errorMessages;
+        } else if (error.error) {
+          // Generic error message
+          errorMessage = error.error;
+        } else if (error.message) {
+          // General message
+          errorMessage = error.message;
+        }
+        
+        addNotification('error', `Error: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error(`Error ${editingPatient ? 'updating' : 'adding'} patient:`, error);
+      addNotification('error', `Failed to ${editingPatient ? 'update' : 'add'} patient`);
+    }
+  };
+
+  const handleDeletePatient = async (patientId: string, patientName: string) => {
+    if (!confirm(`Are you sure you want to delete ${patientName}? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/patients/${patientId}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        addNotification('success', 'Patient deleted successfully!');
+        fetchData();
       } else {
         const error = await response.json();
         addNotification('error', `Error: ${error.error}`);
       }
     } catch (error) {
-      console.error('Error creating group:', error);
-      addNotification('error', 'Failed to create group');
-    } finally {
-      setCreatingGroup(false);
+      console.error('Error deleting patient:', error);
+      addNotification('error', 'Failed to delete patient');
+    }
+  };
+
+  // Template modal handler functions
+  const openAddTemplateModal = () => {
+    setEditingTemplate(null);
+    setTemplateModalData({
+      name: '',
+      type: 'SMS',
+      content: '',
+    });
+    setIsTemplateModalOpen(true);
+  };
+
+  const openEditTemplateModal = (template: Template) => {
+    setEditingTemplate(template);
+    setTemplateModalData({
+      name: template.name,
+      type: template.type,
+      content: template.content,
+    });
+    setIsTemplateModalOpen(true);
+  };
+
+  const closeTemplateModal = () => {
+    setIsTemplateModalOpen(false);
+    setEditingTemplate(null);
+    setTemplateModalData({
+      name: '',
+      type: 'SMS',
+      content: '',
+    });
+  };
+
+  const handleTemplateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Client-side validation
+    if (!templateModalData.name.trim()) {
+      addNotification('error', 'Template name is required');
+      return;
+    }
+    
+    if (!templateModalData.content.trim()) {
+      addNotification('error', 'Template content is required');
+      return;
+    }
+    
+    if (templateModalData.content.length > 1600) {
+      addNotification('error', 'Template content must be at most 1600 characters');
+      return;
+    }
+    
+    try {
+      const url = '/api/templates';
+      const method = editingTemplate ? 'PUT' : 'POST';
+      const body = editingTemplate 
+        ? { id: editingTemplate.id, ...templateModalData }
+        : templateModalData;
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      
+      if (response.ok) {
+        addNotification('success', `Template ${editingTemplate ? 'updated' : 'created'} successfully!`);
+        closeTemplateModal();
+        fetchData();
+      } else {
+        const error = await response.json();
+        
+        // Handle different error response formats
+        let errorMessage = 'An error occurred';
+        
+        if (error.errors) {
+          // Validation errors from Zod or custom validation
+          const errorMessages = Object.entries(error.errors)
+            .map(([field, message]) => `${field}: ${message}`)
+            .join(', ');
+          errorMessage = errorMessages;
+        } else if (error.error) {
+          // Generic error message
+          errorMessage = error.error;
+        } else if (error.message) {
+          // General message
+          errorMessage = error.message;
+        }
+        
+        addNotification('error', `Error: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error(`Error ${editingTemplate ? 'updating' : 'adding'} template:`, error);
+      addNotification('error', `Failed to ${editingTemplate ? 'update' : 'add'} template`);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: string, templateName: string) => {
+    if (!confirm(`Are you sure you want to delete "${templateName}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/templates?id=${templateId}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        addNotification('success', 'Template deleted successfully!');
+        fetchData();
+      } else {
+        const error = await response.json();
+        
+        // Handle different error response formats
+        let errorMessage = 'An error occurred';
+        
+        if (error.errors) {
+          // Validation errors from Zod or custom validation
+          const errorMessages = Object.entries(error.errors)
+            .map(([field, message]) => `${field}: ${message}`)
+            .join(', ');
+          errorMessage = errorMessages;
+        } else if (error.error) {
+          // Generic error message
+          errorMessage = error.error;
+        } else if (error.message) {
+          // General message
+          errorMessage = error.message;
+        }
+        
+        addNotification('error', `Error: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      addNotification('error', 'Failed to delete template');
+    }
+  };
+
+  // Phone number formatting helper
+  const formatPhoneInput = (value: string) => {
+    // Remove all non-digit characters
+    const digits = value.replace(/\D/g, '');
+    
+    // Add + prefix if not present
+    if (digits && !value.startsWith('+')) {
+      return '+' + digits;
+    }
+    
+    return value;
+  };
+
+  const validatePhoneNumber = (phone: string) => {
+    // Basic validation: should be at least +1 followed by 10 digits
+    const phoneRegex = /^\+[1-9]\d{10,14}$/;
+    return phoneRegex.test(phone);
+  };
+
+  // Patient Group modal handler functions
+  const openAddPatientGroupModal = () => {
+    setEditingPatientGroup(null);
+    setPatientGroupModalData({
+      name: '',
+      description: '',
+      color: '#3B82F6',
+      patientIds: [],
+    });
+    setIsPatientGroupModalOpen(true);
+  };
+
+  const openEditPatientGroupModal = (group: PatientGroup) => {
+    setEditingPatientGroup(group);
+    setPatientGroupModalData({
+      name: group.name,
+      description: group.description || '',
+      color: group.color,
+      patientIds: group.patients.map(p => p.patient.id),
+    });
+    setIsPatientGroupModalOpen(true);
+  };
+
+  const closePatientGroupModal = () => {
+    setIsPatientGroupModalOpen(false);
+    setEditingPatientGroup(null);
+    setPatientGroupModalData({
+      name: '',
+      description: '',
+      color: '#3B82F6',
+      patientIds: [],
+    });
+  };
+
+  const handlePatientGroupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Client-side validation
+    if (!patientGroupModalData.name.trim()) {
+      addNotification('error', 'Group name is required');
+      return;
+    }
+    
+    try {
+      const isEditing = editingPatientGroup !== null;
+      const url = '/api/patient-groups';
+      const method = isEditing ? 'PUT' : 'POST';
+      const body = isEditing 
+        ? { id: editingPatientGroup.id, ...patientGroupModalData }
+        : patientGroupModalData;
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        addNotification('success', `Group ${isEditing ? 'updated' : 'created'} successfully!`);
+        closePatientGroupModal();
+        fetchData();
+      } else {
+        const error = await response.json();
+        
+        // Handle different error response formats
+        let errorMessage = 'An error occurred';
+        
+        if (error.errors) {
+          // Validation errors from Zod or custom validation
+          const errorMessages = Object.entries(error.errors)
+            .map(([field, message]) => `${field}: ${message}`)
+            .join(', ');
+          errorMessage = errorMessages;
+        } else if (error.error) {
+          // Generic error message
+          errorMessage = error.error;
+        } else if (error.message) {
+          // General message
+          errorMessage = error.message;
+        }
+        
+        addNotification('error', `Error: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error(`Error ${editingPatientGroup ? 'updating' : 'creating'} group:`, error);
+      addNotification('error', `Failed to ${editingPatientGroup ? 'update' : 'create'} group`);
+    }
+  };
+
+  const handleDeletePatientGroup = async (groupId: string, groupName: string) => {
+    if (!confirm(`Are you sure you want to delete "${groupName}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/patient-groups?id=${groupId}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        addNotification('success', 'Patient group deleted successfully!');
+        fetchData();
+      } else {
+        const error = await response.json();
+        
+        // Handle different error response formats
+        let errorMessage = 'An error occurred';
+        
+        if (error.errors) {
+          // Validation errors from Zod or custom validation
+          const errorMessages = Object.entries(error.errors)
+            .map(([field, message]) => `${field}: ${message}`)
+            .join(', ');
+          errorMessage = errorMessages;
+        } else if (error.error) {
+          // Generic error message
+          errorMessage = error.error;
+        } else if (error.message) {
+          // General message
+          errorMessage = error.message;
+        }
+        
+        addNotification('error', `Error: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error('Error deleting group:', error);
+      addNotification('error', 'Failed to delete patient group');
     }
   };
 
@@ -931,47 +1237,17 @@ export default function Dashboard() {
 
         {activeTab === 'patients' && (
           <div className="space-y-8">
-            {/* Add New Patient */}
+            {/* Add New Patient Button */}
             <Card>
               <CardHeader>
-                <CardTitle>Add New Patient</CardTitle>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Patient Management</span>
+                  <Button onClick={openAddPatientModal} variant="primary">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add New Patient
+                  </Button>
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleAddPatient} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="First Name"
-                    value={newPatient.firstName}
-                    onChange={(e) => setNewPatient({ ...newPatient, firstName: e.target.value })}
-                    required
-                  />
-                  <Input
-                    label="Last Name"
-                    value={newPatient.lastName}
-                    onChange={(e) => setNewPatient({ ...newPatient, lastName: e.target.value })}
-                    required
-                  />
-                  <Input
-                    label="Phone Number"
-                    type="tel"
-                    value={newPatient.phoneNumber}
-                    onChange={(e) => setNewPatient({ ...newPatient, phoneNumber: e.target.value })}
-                    placeholder="+1234567890"
-                    required
-                  />
-                  <Input
-                    label="Email (Optional)"
-                    type="email"
-                    value={newPatient.email}
-                    onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
-                  />
-                  <div className="md:col-span-2">
-                    <Button type="submit" className="w-full">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Patient
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
             </Card>
 
             {/* Patients List */}
@@ -1012,9 +1288,36 @@ export default function Dashboard() {
                             </span>
                           )}
                         </div>
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openEditPatientModal(patient)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeletePatient(patient.id, `${patient.firstName} ${patient.lastName}`)}
+                            className="text-red-600 hover:text-red-700 hover:border-red-300"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
+                  
+                  {patients.length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 mb-4">No patients added yet.</p>
+                      <Button onClick={openAddPatientModal} variant="primary">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Your First Patient
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1088,59 +1391,17 @@ export default function Dashboard() {
 
         {activeTab === 'templates' && (
           <div className="space-y-8">
-            {/* Add New Template */}
+            {/* Template Management Header */}
             <Card>
               <CardHeader>
-                <CardTitle>Create New Template</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleAddTemplate} className="space-y-4">
-                  <Input
-                    label="Template Name"
-                    value={newTemplate.name}
-                    onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
-                    placeholder="e.g., Appointment Reminder"
-                    required
-                  />
-                  
-                  <Select
-                    label="Template Type"
-                    value={newTemplate.type}
-                    onChange={(e) => setNewTemplate({ ...newTemplate, type: e.target.value as 'SMS' | 'VOICE' })}
-                  >
-                    <option value="SMS">SMS Message</option>
-                    <option value="VOICE">Voice Call</option>
-                  </Select>
-                  
-                  <Textarea
-                    label="Template Content"
-                    value={newTemplate.content}
-                    onChange={(e) => setNewTemplate({ ...newTemplate, content: e.target.value })}
-                    placeholder="Enter your message template here. Use {firstName}, {lastName}, {appointmentDate}, {appointmentTime} for dynamic values."
-                    rows={4}
-                    required
-                  />
-                  
-                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                    <h4 className="text-sm font-medium text-blue-800 mb-2">Available Variables ({Object.keys(getAvailableTemplateVariables()).length} total):</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs max-h-48 overflow-y-auto">
-                      {Object.entries(getAvailableTemplateVariables()).map(([variable, description]) => (
-                        <div key={variable} className="flex items-start">
-                          <code className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-mono mr-2 whitespace-nowrap">
-                            {variable}
-                          </code>
-                          <span className="text-blue-700 text-xs">{description}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <Button type="submit" className="w-full">
+                <CardTitle className="flex items-center justify-between">
+                  <span>Template Management</span>
+                  <Button onClick={openAddTemplateModal} variant="primary">
                     <Plus className="h-4 w-4 mr-2" />
-                    Create Template
+                    Add New Template
                   </Button>
-                </form>
-              </CardContent>
+                </CardTitle>
+              </CardHeader>
             </Card>
 
             {/* Templates List */}
@@ -1156,13 +1417,38 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="space-y-4">
                     {templates.filter(t => t.type === 'SMS').map((template) => (
-                      <div key={template.id} className="p-4 border border-gray-200 rounded-lg">
-                        <h4 className="font-medium text-gray-900 mb-2">{template.name}</h4>
-                        <p className="text-sm text-gray-600 line-clamp-3">{template.content}</p>
+                      <div key={template.id} className="flex items-start justify-between p-4 border border-gray-200 rounded-lg">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 mb-2">{template.name}</h4>
+                          <p className="text-sm text-gray-600 line-clamp-3">{template.content}</p>
+                        </div>
+                        <div className="flex space-x-2 ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openEditTemplateModal(template)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteTemplate(template.id, template.name)}
+                            className="text-red-600 hover:text-red-700 hover:border-red-300"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                     {templates.filter(t => t.type === 'SMS').length === 0 && (
-                      <p className="text-gray-500 text-center py-4">No SMS templates yet</p>
+                      <div className="text-center py-8">
+                        <p className="text-gray-500 mb-4">No SMS templates yet.</p>
+                        <Button onClick={openAddTemplateModal} variant="primary">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create Your First SMS Template
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -1179,13 +1465,38 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="space-y-4">
                     {templates.filter(t => t.type === 'VOICE').map((template) => (
-                      <div key={template.id} className="p-4 border border-gray-200 rounded-lg">
-                        <h4 className="font-medium text-gray-900 mb-2">{template.name}</h4>
-                        <p className="text-sm text-gray-600 line-clamp-3">{template.content}</p>
+                      <div key={template.id} className="flex items-start justify-between p-4 border border-gray-200 rounded-lg">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 mb-2">{template.name}</h4>
+                          <p className="text-sm text-gray-600 line-clamp-3">{template.content}</p>
+                        </div>
+                        <div className="flex space-x-2 ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openEditTemplateModal(template)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteTemplate(template.id, template.name)}
+                            className="text-red-600 hover:text-red-700 hover:border-red-300"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                     {templates.filter(t => t.type === 'VOICE').length === 0 && (
-                      <p className="text-gray-500 text-center py-4">No voice templates yet</p>
+                      <div className="text-center py-8">
+                        <p className="text-gray-500 mb-4">No voice templates yet.</p>
+                        <Button onClick={openAddTemplateModal} variant="primary">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create Your First Voice Template
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -1310,92 +1621,34 @@ export default function Dashboard() {
 
         {activeTab === 'groups' && (
           <div className="space-y-8">
-            {/* Create New Group */}
+            {/* Add New Group Button */}
             <Card>
               <CardHeader>
-                <CardTitle>Create Patient Group</CardTitle>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Patient Group Management</span>
+                  <Button onClick={openAddPatientGroupModal} variant="primary">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add New Group
+                  </Button>
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Group Name</label>
-                    <Input
-                      value={newGroup.name}
-                      onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })}
-                      placeholder="e.g., Diabetes Patients"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Color</label>
-                    <Input
-                      type="color"
-                      value={newGroup.color}
-                      onChange={(e) => setNewGroup({ ...newGroup, color: e.target.value })}
-                      className="w-20"
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Description</label>
-                  <Textarea
-                    value={newGroup.description}
-                    onChange={(e) => setNewGroup({ ...newGroup, description: e.target.value })}
-                    placeholder="Optional description for this group"
-                    rows={2}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Add Patients to Group</label>
-                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
-                    {patients.map((patient) => (
-                      <label key={patient.id} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={newGroup.patientIds.includes(patient.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setNewGroup({
-                                ...newGroup,
-                                patientIds: [...newGroup.patientIds, patient.id]
-                              });
-                            } else {
-                              setNewGroup({
-                                ...newGroup,
-                                patientIds: newGroup.patientIds.filter(id => id !== patient.id)
-                              });
-                            }
-                          }}
-                          className="rounded"
-                        />
-                        <span className="text-sm text-gray-900">
-                          {patient.firstName} {patient.lastName} ({patient.phoneNumber})
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handleCreateGroup}
-                  disabled={!newGroup.name.trim() || creatingGroup}
-                  variant="primary"
-                >
-                  {creatingGroup ? 'Creating...' : 'Create Group'}
-                </Button>
-              </CardContent>
             </Card>
 
             {/* Existing Groups */}
             <Card>
               <CardHeader>
-                <CardTitle>Patient Groups</CardTitle>
+                <CardTitle>Patient Groups ({patientGroups.length})</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {patientGroups.length === 0 ? (
-                    <p className="text-gray-500 text-center py-8">No patient groups created yet.</p>
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 mb-4">No patient groups created yet.</p>
+                      <Button onClick={openAddPatientGroupModal} variant="primary">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Your First Group
+                      </Button>
+                    </div>
                   ) : (
                     patientGroups.map((group) => (
                       <div key={group.id} className="border border-gray-200 rounded-lg p-4">
@@ -1416,17 +1669,34 @@ export default function Dashboard() {
                             <span className="text-sm text-gray-500">
                               {group._count.patients} patients
                             </span>
-                            <Button
-                              onClick={() => {
-                                // Quick bulk message to group
-                                setSelectedGroups([group.id]);
-                                setActiveTab('bulk');
-                              }}
-                              variant="outline"
-                              size="sm"
-                            >
-                              Message Group
-                            </Button>
+                            <div className="flex space-x-2">
+                              <Button
+                                onClick={() => {
+                                  // Quick bulk message to group
+                                  setSelectedGroups([group.id]);
+                                  setActiveTab('bulk');
+                                }}
+                                variant="outline"
+                                size="sm"
+                              >
+                                Message Group
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openEditPatientGroupModal(group)}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeletePatientGroup(group.id, group.name)}
+                                className="text-red-600 hover:text-red-700 hover:border-red-300"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                         
@@ -1464,6 +1734,306 @@ export default function Dashboard() {
           />
         )}
       </main>
+
+      {/* Patient Modal */}
+      {isPatientModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          onClick={closePatientModal}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {editingPatient ? 'Edit Patient' : 'Add New Patient'}
+                </h2>
+                <button
+                  onClick={closePatientModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSavePatient} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="First Name *"
+                    value={patientModalData.firstName}
+                    onChange={(e) => setPatientModalData({ ...patientModalData, firstName: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="Last Name *"
+                    value={patientModalData.lastName}
+                    onChange={(e) => setPatientModalData({ ...patientModalData, lastName: e.target.value })}
+                    required
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Phone Number *"
+                    type="tel"
+                    value={patientModalData.phoneNumber}
+                    onChange={(e) => setPatientModalData({ ...patientModalData, phoneNumber: formatPhoneInput(e.target.value) })}
+                    placeholder="+1234567890"
+                    required
+                  />
+                  <Input
+                    label="Email (Optional)"
+                    type="email"
+                    value={patientModalData.email}
+                    onChange={(e) => setPatientModalData({ ...patientModalData, email: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="smsEnabled"
+                      checked={patientModalData.smsEnabled}
+                      onChange={(e) => setPatientModalData({ ...patientModalData, smsEnabled: e.target.checked })}
+                      className="rounded"
+                    />
+                    <label htmlFor="smsEnabled" className="text-sm text-gray-700">
+                      SMS Enabled
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="voiceEnabled"
+                      checked={patientModalData.voiceEnabled}
+                      onChange={(e) => setPatientModalData({ ...patientModalData, voiceEnabled: e.target.checked })}
+                      className="rounded"
+                    />
+                    <label htmlFor="voiceEnabled" className="text-sm text-gray-700">
+                      Voice Enabled
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex space-x-3">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    className="flex-1"
+                  >
+                    {editingPatient ? 'Update Patient' : 'Add Patient'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closePatientModal}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template Modal */}
+      {isTemplateModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          onClick={closeTemplateModal}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {editingTemplate ? 'Edit Template' : 'Add New Template'}
+                </h2>
+                <button
+                  onClick={closeTemplateModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleTemplateSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Template Name *"
+                    value={templateModalData.name}
+                    onChange={(e) => setTemplateModalData({ ...templateModalData, name: e.target.value })}
+                    placeholder="e.g., Appointment Reminder"
+                    required
+                  />
+                  <Select
+                    label="Template Type *"
+                    value={templateModalData.type}
+                    onChange={(e) => setTemplateModalData({ ...templateModalData, type: e.target.value as 'SMS' | 'VOICE' })}
+                  >
+                    <option value="SMS">SMS Message</option>
+                    <option value="VOICE">Voice Call</option>
+                  </Select>
+                </div>
+                
+                <Textarea
+                  label="Template Content *"
+                  value={templateModalData.content}
+                  onChange={(e) => setTemplateModalData({ ...templateModalData, content: e.target.value })}
+                  placeholder="Enter your message template here. Use variables like {firstName}, {lastName}, etc."
+                  rows={4}
+                  required
+                />
+                
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                  <h4 className="text-sm font-medium text-blue-800 mb-2">Available Variables ({Object.keys(getAvailableTemplateVariables()).length} total):</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs max-h-48 overflow-y-auto">
+                    {Object.entries(getAvailableTemplateVariables()).map(([variable, description]) => (
+                      <div key={variable} className="flex items-start">
+                        <code className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-mono mr-2 whitespace-nowrap">
+                          {variable}
+                        </code>
+                        <span className="text-blue-700 text-xs">{description}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex space-x-3">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    className="flex-1"
+                  >
+                    {editingTemplate ? 'Update Template' : 'Create Template'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closeTemplateModal}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Patient Group Modal */}
+      {isPatientGroupModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          onClick={closePatientGroupModal}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {editingPatientGroup ? 'Edit Patient Group' : 'Add New Patient Group'}
+                </h2>
+                <button
+                  onClick={closePatientGroupModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handlePatientGroupSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Group Name *</label>
+                    <Input
+                      value={patientGroupModalData.name}
+                      onChange={(e) => setPatientGroupModalData({ ...patientGroupModalData, name: e.target.value })}
+                      placeholder="e.g., Diabetes Patients"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Color</label>
+                    <Input
+                      type="color"
+                      value={patientGroupModalData.color}
+                      onChange={(e) => setPatientGroupModalData({ ...patientGroupModalData, color: e.target.value })}
+                      className="w-20"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Description</label>
+                  <Textarea
+                    value={patientGroupModalData.description}
+                    onChange={(e) => setPatientGroupModalData({ ...patientGroupModalData, description: e.target.value })}
+                    placeholder="Optional description for this group"
+                    rows={2}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Add Patients to Group</label>
+                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
+                    {patients.map((patient) => (
+                      <label key={patient.id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={patientGroupModalData.patientIds.includes(patient.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setPatientGroupModalData({
+                                ...patientGroupModalData,
+                                patientIds: [...patientGroupModalData.patientIds, patient.id]
+                              });
+                            } else {
+                              setPatientGroupModalData({
+                                ...patientGroupModalData,
+                                patientIds: patientGroupModalData.patientIds.filter(id => id !== patient.id)
+                              });
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm text-gray-900">
+                          {patient.firstName} {patient.lastName} ({patient.phoneNumber})
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex space-x-3">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    className="flex-1"
+                  >
+                    {editingPatientGroup ? 'Update Group' : 'Create Group'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closePatientGroupModal}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </AuthWrapper>
   );

@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const phoneNumberSchema = z.string()
   .min(10, 'Phone number must be at least 10 digits')
   .max(15, 'Phone number must be at most 15 digits')
-  .regex(/^\+?[\d\s\-\(\)]+$/, 'Invalid phone number format');
+  .regex(/^\+[1-9]\d{10,14}$/, 'Phone number must start with + followed by country code and 10-14 digits (e.g., +1234567890)');
 
 export const emailSchema = z.string()
   .email('Invalid email format')
@@ -50,7 +50,7 @@ export const createPatientSchema = z.object({
 });
 
 export const updatePatientSchema = createPatientSchema.extend({
-  id: z.string().uuid('Invalid patient ID'),
+  id: z.string().min(1, 'Patient ID is required'),
 });
 
 // Template validation schemas
@@ -67,12 +67,12 @@ export const createTemplateSchema = z.object({
 });
 
 export const updateTemplateSchema = createTemplateSchema.extend({
-  id: z.string().uuid('Invalid template ID'),
+  id: z.string().min(1, 'Template ID is required'),
 });
 
 // Communication validation schemas
 export const sendCommunicationSchema = z.object({
-  patientId: z.string().uuid('Invalid patient ID'),
+  patientId: z.string().min(1, 'Patient ID is required'),
   type: z.enum(['SMS', 'VOICE']),
   content: z.string()
     .min(1, 'Message content is required')
