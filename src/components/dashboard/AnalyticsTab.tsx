@@ -4,61 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select } from '@/components/ui/form';
 import { MessageSquare, Phone, Users, CheckCircle, XCircle, BarChart3, TrendingUp, Calendar, AlertTriangle } from 'lucide-react';
-
-interface Patient {
-  id: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  email?: string;
-  smsEnabled: boolean;
-  voiceEnabled: boolean;
-}
-
-interface Analytics {
-  stats: {
-    totalCommunications: number;
-    sms: {
-      total: number;
-      delivered: number;
-      failed: number;
-      pending: number;
-    };
-    voice: {
-      total: number;
-      delivered: number;
-      failed: number;
-      pending: number;
-    };
-  };
-  successRates: {
-    sms: number;
-    voice: number;
-  };
-  dailyStats: Array<{
-    date: string;
-    sent: number;
-    delivered: number;
-    failed: number;
-  }>;
-  topPatients: Array<{
-    name: string;
-    count: number;
-  }>;
-  recentFailures: Array<{
-    id: string;
-    type: 'SMS' | 'VOICE';
-    patient: string;
-    phoneNumber: string;
-    errorMessage: string;
-    failedAt: string;
-  }>;
-  dateRange: {
-    from: string;
-    to: string;
-    days: number;
-  };
-}
+import type { Patient, Analytics } from '@/types';
 
 interface AnalyticsTabProps {
   patients: Patient[];

@@ -2,29 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageSquare, Phone } from 'lucide-react';
-
-interface Patient {
-  id: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  email?: string;
-  smsEnabled: boolean;
-  voiceEnabled: boolean;
-}
-
-interface Communication {
-  id: string;
-  type: 'SMS' | 'VOICE';
-  content: string;
-  phoneNumber: string;
-  status: 'PENDING' | 'SENT' | 'DELIVERED' | 'FAILED';
-  sentAt?: Date;
-  deliveredAt?: Date;
-  failedAt?: Date;
-  errorMessage?: string;
-  patient: Patient;
-}
+import type { Communication } from '@/types';
 
 interface CommunicationsTabProps {
   communications: Communication[];

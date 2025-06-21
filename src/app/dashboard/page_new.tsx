@@ -15,91 +15,15 @@ import {
   AnalyticsTab,
   SettingsTab
 } from '@/components/dashboard';
-
-interface Patient {
-  id: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  email?: string;
-  smsEnabled: boolean;
-  voiceEnabled: boolean;
-  _count?: {
-    appointments: number;
-    communications: number;
-  };
-}
-
-interface Template {
-  id: string;
-  name: string;
-  type: 'SMS' | 'VOICE';
-  content: string;
-}
-
-interface Communication {
-  id: string;
-  type: 'SMS' | 'VOICE';
-  content: string;
-  phoneNumber: string;
-  status: 'PENDING' | 'SENT' | 'DELIVERED' | 'FAILED';
-  sentAt?: Date;
-  deliveredAt?: Date;
-  failedAt?: Date;
-  errorMessage?: string;
-  patient: Patient;
-}
-
-interface Analytics {
-  stats: {
-    totalCommunications: number;
-    sms: {
-      total: number;
-      delivered: number;
-      failed: number;
-      pending: number;
-    };
-    voice: {
-      total: number;
-      delivered: number;
-      failed: number;
-      pending: number;
-    };
-  };
-  successRates: {
-    sms: number;
-    voice: number;
-  };
-  dailyStats: Array<{
-    date: string;
-    sent: number;
-    delivered: number;
-    failed: number;
-  }>;
-  topPatients: Array<{
-    name: string;
-    count: number;
-  }>;
-  recentFailures: Array<{
-    id: string;
-    type: 'SMS' | 'VOICE';
-    patient: string;
-    phoneNumber: string;
-    errorMessage: string;
-    failedAt: string;
-  }>;
-  dateRange: {
-    from: string;
-    to: string;
-    days: number;
-  };
-}
-
-interface AppSettings {
-  messagingMode: string;
-  twilioConfigured: boolean;
-  twilioPhoneNumber: string | null;
-}
+import type { 
+  Patient, 
+  Template, 
+  Communication, 
+  Analytics, 
+  AppSettings,
+  PatientFormData, 
+  TemplateFormData 
+} from '@/types';
 
 export default function Dashboard() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -210,7 +134,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleAddPatient = async (data: any) => {
+  const handleAddPatient = async (data: PatientFormData) => {
     setAddingPatient(true);
     try {
       const response = await fetch('/api/patients', {
@@ -234,7 +158,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleUpdatePatient = async (data: any) => {
+  const handleUpdatePatient = async (data: PatientFormData & { id: string }) => {
     try {
       const response = await fetch('/api/patients', {
         method: 'PUT',
@@ -278,7 +202,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleAddTemplate = async (data: any) => {
+  const handleAddTemplate = async (data: TemplateFormData) => {
     setAddingTemplate(true);
     try {
       const response = await fetch('/api/templates', {
@@ -302,7 +226,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleUpdateTemplate = async (data: any) => {
+  const handleUpdateTemplate = async (data: TemplateFormData & { id: string }) => {
     try {
       const response = await fetch('/api/templates', {
         method: 'PUT',

@@ -2,43 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageSquare, Phone, Users, BarChart3, Clock } from 'lucide-react';
-
-interface Patient {
-  id: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  email?: string;
-  smsEnabled: boolean;
-  voiceEnabled: boolean;
-}
-
-interface Template {
-  id: string;
-  name: string;
-  type: 'SMS' | 'VOICE';
-  content: string;
-}
-
-interface Communication {
-  id: string;
-  type: 'SMS' | 'VOICE';
-  content: string;
-  status: string;
-  sentAt?: string;
-  deliveredAt?: string;
-  failedAt?: string;
-  patient: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    phoneNumber: string;
-  };
-  template?: {
-    id: string;
-    name: string;
-  };
-}
+import type { Patient, Template, Communication } from '@/types';
 
 interface OverviewTabProps {
   patients: Patient[];

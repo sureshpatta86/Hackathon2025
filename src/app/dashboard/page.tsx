@@ -13,53 +13,10 @@ import {
   OverviewTab,
   SettingsTab
 } from '@/components/dashboard';
+import type { Patient, Template, Communication, Analytics } from '@/types';
 import { GlobalSearch, AdvancedFilters } from '@/components/search';
 import { useAdvancedSearch } from '@/hooks/useAdvancedSearch';
 import { PaginatedTable, TableColumn } from '@/components/ui/PaginatedTable';
-
-interface Patient {
-  id: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  email?: string;
-  smsEnabled: boolean;
-  voiceEnabled: boolean;
-  _count?: {
-    appointments: number;
-    communications: number;
-  };
-  [key: string]: unknown;
-}
-
-interface Template {
-  id: string;
-  name: string;
-  type: 'SMS' | 'VOICE';
-  content: string;
-  [key: string]: unknown;
-}
-
-interface Communication {
-  id: string;
-  type: 'SMS' | 'VOICE';
-  content: string;
-  status: string;
-  sentAt?: string;
-  deliveredAt?: string;
-  failedAt?: string;
-  patient: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    phoneNumber: string;
-  };
-  template?: {
-    id: string;
-    name: string;
-  };
-  [key: string]: unknown;
-}
 
 interface PatientGroup {
   id: string;
@@ -78,25 +35,6 @@ interface PatientGroup {
   _count: {
     patients: number;
   };
-}
-
-interface Analytics {
-  stats: {
-    totalCommunications: number;
-    sms: { total: number; delivered: number; failed: number; pending: number };
-    voice: { total: number; delivered: number; failed: number; pending: number };
-  };
-  successRates: { sms: number; voice: number };
-  dailyStats: { date: string; sms: number; voice: number; total: number }[];
-  topPatients: { name: string; count: number }[];
-  recentFailures: {
-    id: string;
-    type: string;
-    patient: string;
-    phoneNumber: string;
-    errorMessage: string;
-    failedAt: string;
-  }[];
 }
 
 export default function Dashboard() {
@@ -1661,14 +1599,18 @@ export default function Dashboard() {
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Daily Activity (Last 30 Days)</h3>
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <div className="grid grid-cols-7 gap-2 text-xs">
-                        {analytics.dailyStats.slice(-7).map((day, index) => (
-                          <div key={index} className="text-center">
-                            <div className="font-medium text-gray-600">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                            <div className="bg-blue-200 rounded mt-1" style={{ height: `${Math.max(20, (day.total / Math.max(...analytics.dailyStats.map(d => d.total), 1)) * 60)}px` }}>
-                              <div className="text-xs font-medium pt-1 text-blue-800">{day.total}</div>
+                        {analytics.dailyStats.slice(-7).map((day, index) => {
+                          const dayTotal = day.total || (day.sent + day.delivered + day.failed);
+                          const maxTotal = Math.max(...analytics.dailyStats.map(d => d.total || (d.sent + d.delivered + d.failed)), 1);
+                          return (
+                            <div key={index} className="text-center">
+                              <div className="font-medium text-gray-600">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                              <div className="bg-blue-200 rounded mt-1" style={{ height: `${Math.max(20, (dayTotal / maxTotal) * 60)}px` }}>
+                                <div className="text-xs font-medium pt-1 text-blue-800">{dayTotal}</div>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </div>

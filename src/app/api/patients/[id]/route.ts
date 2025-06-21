@@ -4,9 +4,10 @@ import { db } from '@/lib/db';
 // GET /api/patients/[id] - Get a specific patient
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const patient = await db.patient.findUnique({
       where: { id: params.id },
       include: {
@@ -43,9 +44,10 @@ export async function GET(
 // PUT /api/patients/[id] - Update a patient
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const body = await request.json();
     const { firstName, lastName, phoneNumber, email, dateOfBirth, smsEnabled, voiceEnabled, medicalNotes } = body;
 
@@ -76,9 +78,10 @@ export async function PUT(
 // DELETE /api/patients/[id] - Delete a patient
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     await db.patient.delete({
       where: { id: params.id },
     });
