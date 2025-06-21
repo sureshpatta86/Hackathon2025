@@ -1,0 +1,76 @@
+name: Deploy to Azure Web App
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
+  NODE_VERSION: '18.x'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Generate Prisma Client
+      run: npx prisma generate
+    
+    - name: Create SQLite database and run migrations
+      run: |
+        mkdir -p prisma
+        touch prisma/dev.db
+        npx prisma db push
+      env:
+        DATABASE_URL: "file:./prisma/dev.db"
+    
+    - name: Build Next.js application
+      run: npm run build
+      env:
+        DATABASE_URL: "file:./prisma/dev.db"
+        TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+        TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+        TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+        NEXT_PUBLIC_APP_NAME: ${{ secrets.NEXT_PUBLIC_APP_NAME }}
+        NEXT_PUBLIC_APP_URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+        MESSAGING_MODE: ${{ secrets.MESSAGING_MODE }}
+    
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        package: .
+    
+    - name: Configure App Settings in Azure
+      run: |
+        az webapp config appsettings set \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name ${{ env.AZURE_WEBAPP_NAME }} \
+          --settings \
+          DATABASE_URL="file:./prisma/dev.db" \
+          TWILIO_ACCOUNT_SID="${{ secrets.TWILIO_ACCOUNT_SID }}" \
+          TWILIO_AUTH_TOKEN="${{ secrets.TWILIO_AUTH_TOKEN }}" \
+          TWILIO_PHONE_NUMBER="${{ secrets.TWILIO_PHONE_NUMBER }}" \
+          NEXT_PUBLIC_APP_NAME="${{ secrets.NEXT_PUBLIC_APP_NAME }}" \
+          NEXT_PUBLIC_APP_URL="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net" \
+          MESSAGING_MODE="${{ secrets.MESSAGING_MODE }}" \
+          NODE_ENV="production" \
+          WEBSITE_RUN_FROM_PACKAGE="1"

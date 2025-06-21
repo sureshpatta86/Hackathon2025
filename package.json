@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "npx prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "db:seed": "tsx src/lib/seed.ts",
@@ -13,7 +13,8 @@
     "db:reset": "npx prisma db push --force-reset",
     "full-start": "npm run db:setup && npm run dev",
     "start:demo": "cross-env MESSAGING_MODE=demo npm run dev",
-    "start:live": "cross-env MESSAGING_MODE=live npm run dev"
+    "start:live": "cross-env MESSAGING_MODE=live npm run dev",
+    "postinstall": "npx prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.10.1",
@@ -42,5 +43,8 @@
     "tailwindcss": "^4",
     "tsx": "^4.20.3",
     "typescript": "5.8.3"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }

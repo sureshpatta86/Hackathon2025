@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Secret files with actual values - NEVER COMMIT
+SECRETS_FOR_GITHUB.md
+
 # vercel
 .vercel
 
