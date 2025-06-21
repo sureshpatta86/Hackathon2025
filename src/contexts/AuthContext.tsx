@@ -56,7 +56,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         ?.split('=')[1];
 
       if (storedUser && authToken) {
-        setUser(JSON.parse(storedUser));
+        const user = JSON.parse(storedUser);
+        console.log('Restored user from sessionStorage:', user);
+        setUser(user);
         return true;
       }
 
@@ -68,6 +70,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (response.ok) {
         const userData = await response.json();
+        console.log('Auth validation successful, received user data:', userData.user);
         setUser(userData.user);
         sessionStorage.setItem('user', JSON.stringify(userData.user));
         return true;

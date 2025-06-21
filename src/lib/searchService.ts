@@ -36,11 +36,11 @@ export class SearchService {
   ): Promise<SearchResult[]> {
     const results: SearchResult[] = [];
 
-    // Fetch data from APIs
+    // Fetch data from APIs with credentials to include authentication cookies
     const [patientsRes, templatesRes, communicationsRes] = await Promise.all([
-      fetch('/api/patients'),
-      fetch('/api/templates'),
-      fetch('/api/communications'),
+      fetch('/api/patients', { credentials: 'include' }),
+      fetch('/api/templates', { credentials: 'include' }),
+      fetch('/api/communications', { credentials: 'include' }),
     ]);
 
     const patients: Patient[] = patientsRes.ok ? await patientsRes.json() : [];
