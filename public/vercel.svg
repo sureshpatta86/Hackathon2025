@@ -1,1 +1,12 @@
-<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Heart Icon Background -->
+  <path d="M24 44.5C24 44.5 36 32.5 36 24.5C36 20.5 33 16.5 28 16.5C26 16.5 24.5 17.5 24 19C23.5 17.5 22 16.5 20 16.5C15 16.5 12 20.5 12 24.5C12 32.5 24 44.5 24 44.5Z" fill="#2563eb" stroke="#2563eb" stroke-width="1.5"/>
+  
+  <!-- Activity Pulse Overlay -->
+  <path d="M16 28H20L22 24L26 32L28 28H32" stroke="#10b981" stroke-width="2" fill="none" opacity="0.8"/>
+  
+  <!-- Pulse Dot -->
+  <circle cx="32" cy="20" r="2" fill="#10b981" opacity="0.8">
+    <animate attributeName="opacity" values="0.8;0.2;0.8" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg>

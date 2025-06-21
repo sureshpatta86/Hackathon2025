@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
-import { Menu, X, LogOut, Home, BarChart3, LucideIcon } from 'lucide-react';
+import { Menu, X, LogOut, ArrowLeft, LucideIcon } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface NavigationProps {
   variant?: 'home' | 'dashboard';
@@ -19,12 +20,15 @@ interface NavItem {
 
 export default function Navigation({ variant = 'home' }: NavigationProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const router = useRouter();
   const pathname = usePathname();
+  const { logout, user } = useAuth();
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('user');
-    router.push('/login');
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   const isLoginPage = pathname === '/login';
@@ -37,13 +41,7 @@ export default function Navigation({ variant = 'home' }: NavigationProps) {
     { href: '#about', label: 'About' },
   ];
 
-  // Navigation items for dashboard
-  const dashboardNavItems: NavItem[] = [
-    { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
-    { href: '/', label: 'Home', icon: Home },
-  ];
-
-  const navItems = isDashboard ? dashboardNavItems : homeNavItems;
+  const navItems = isDashboard ? [] : homeNavItems;
 
   return (
     <nav className={`${
@@ -94,16 +92,25 @@ export default function Navigation({ variant = 'home' }: NavigationProps) {
                   );
                 })}
                 
+                {isDashboard && user && (
+                  <div className="flex items-center space-x-3 px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-full border border-blue-100 shadow-sm">
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                      {user.username.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-gray-700 font-bold text-sm">
+                      Welcome, {user.username.charAt(0).toUpperCase() + user.username.slice(1)}
+                    </span>
+                  </div>
+                )}
+                
                 {isDashboard ? (
-                  <Button
+                  <button
                     onClick={handleLogout}
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center space-x-2"
+                    className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text-white rounded-full transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+                    title="Log out"
                   >
-                    <LogOut className="h-4 w-4" />
-                    <span>Logout</span>
-                  </Button>
+                    <LogOut className="h-5 w-5" />
+                  </button>
                 ) : (
                   <Link href="/login">
                     <Button variant="primary" className="bg-blue-600 hover:bg-blue-700">
@@ -117,10 +124,9 @@ export default function Navigation({ variant = 'home' }: NavigationProps) {
             {/* Login page - minimal nav */}
             {isLoginPage && (
               <Link href="/">
-                <Button variant="outline" size="sm">
-                  <Home className="h-4 w-4 mr-2" />
-                  Back to Home
-                </Button>
+                <button className="flex items-center justify-center w-10 h-10 bg-green-500 hover:bg-green-600 text-blue-600 rounded-full transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105" title="Home">
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
               </Link>
             )}
           </div>
@@ -178,18 +184,28 @@ export default function Navigation({ variant = 'home' }: NavigationProps) {
                     );
                   })}
                   
+                  {isDashboard && user && (
+                    <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100 shadow-sm">
+                      <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                        {user.username.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-gray-700 font-bold text-sm">
+                        Welcome, {user.username.charAt(0).toUpperCase() + user.username.slice(1)}
+                      </span>
+                    </div>
+                  )}
+                  
                   {isDashboard ? (
-                    <Button
+                    <button
                       onClick={() => {
                         handleLogout();
                         setIsMenuOpen(false);
                       }}
-                      variant="outline"
-                      className="w-full justify-start"
+                      className="w-full flex items-center justify-center py-3 bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text-white rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                      title="Log out"
                     >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Logout
-                    </Button>
+                      <LogOut className="h-5 w-5" />
+                    </button>
                   ) : (
                     <Link href="/login" onClick={() => setIsMenuOpen(false)}>
                       <Button variant="primary" className="w-full bg-blue-600 hover:bg-blue-700">
@@ -203,10 +219,9 @@ export default function Navigation({ variant = 'home' }: NavigationProps) {
               {/* Login page mobile nav */}
               {isLoginPage && (
                 <Link href="/" onClick={() => setIsMenuOpen(false)}>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Home className="h-4 w-4 mr-2" />
-                    Back to Home
-                  </Button>
+                  <button className="w-full flex items-center justify-center py-3 bg-green-500 hover:bg-green-600 text-blue-600 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg" title="Home">
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
                 </Link>
               )}
             </div>

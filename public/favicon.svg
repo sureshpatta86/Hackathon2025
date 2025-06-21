@@ -1,0 +1,7 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Larger Heart Icon -->
+  <path d="M8 15C8 15 13.5 10.5 13.5 7C13.5 5 12 3 9.5 3C8.5 3 7.75 3.5 8 4.5C7.25 3.5 6.5 3 5.5 3C3 3 1.5 5 1.5 7C1.5 10.5 8 15 8 15Z" fill="#2563eb"/>
+  
+  <!-- Activity Pulse Line -->
+  <path d="M4 8.5H5.5L6.5 7L8.5 11L10 8.5H12" stroke="#10b981" stroke-width="1.2" fill="none"/>
+</svg>
