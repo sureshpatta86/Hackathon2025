@@ -42,11 +42,36 @@ export function PaginatedTable<T extends Record<string, unknown>>({
   const filteredData = React.useMemo(() => {
     if (!searchQuery.trim()) return data;
 
-    return data.filter(item =>
-      Object.values(item).some(value =>
-        value?.toString().toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    );
+    const filtered = data.filter(item => {
+      // For patient objects, search in specific fields
+      if ('firstName' in item && 'lastName' in item && 'phoneNumber' in item) {
+        const patient = item as Record<string, unknown> & {
+          firstName: string;
+          lastName: string;
+          phoneNumber: string;
+          email?: string;
+        };
+        const searchTerm = searchQuery.toLowerCase();
+        const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
+        
+        return (
+          patient.firstName?.toLowerCase().includes(searchTerm) ||
+          patient.lastName?.toLowerCase().includes(searchTerm) ||
+          fullName.includes(searchTerm) ||
+          patient.phoneNumber?.includes(searchTerm) ||
+          patient.email?.toLowerCase().includes(searchTerm)
+        );
+      }
+      
+      // For other objects, use the original logic
+      return Object.values(item).some(value => {
+        if (value === null || value === undefined) return false;
+        if (typeof value === 'object') return false; // Skip nested objects
+        return value.toString().toLowerCase().includes(searchQuery.toLowerCase());
+      });
+    });
+
+    return filtered;
   }, [data, searchQuery]);
 
   const pagination = usePagination({

@@ -23,6 +23,9 @@ export default function Navigation({ variant = 'home' }: NavigationProps) {
   const pathname = usePathname();
   const { logout, user } = useAuth();
 
+  // Debug logging
+  console.log('Navigation component - Current user:', user);
+
   const handleLogout = async () => {
     try {
       await logout();

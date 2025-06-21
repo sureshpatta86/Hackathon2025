@@ -13,6 +13,7 @@ import {
   SettingsTab
 } from '@/components/dashboard';
 import type { Patient, Template, Communication, Analytics } from '@/types';
+import type { SearchResult } from '@/types/search';
 import { GlobalSearch, AdvancedFilters } from '@/components/search';
 import { useAdvancedSearch } from '@/hooks/useAdvancedSearch';
 import { PaginatedTable, TableColumn } from '@/components/ui/PaginatedTable';
@@ -60,6 +61,37 @@ function Dashboard() {
 
   // Advanced Search & Filtering
   const search = useAdvancedSearch();
+
+  // Handle global search result selection
+  const handleGlobalSearchResultSelect = (result: SearchResult) => {
+    switch (result.type) {
+      case 'patient':
+        // Navigate to patients tab and highlight the specific patient
+        setActiveTab('patients');
+        // Use the patient's name from the search result
+        const searchQuery = result.title; // This should be "Firstname Lastname" format
+        setPatientSearchQuery(searchQuery);
+        addNotification('info', `Viewing patient: ${result.title}`);
+        break;
+      
+      case 'template':
+        // Navigate to templates tab and highlight the specific template
+        setActiveTab('templates');
+        setTemplateSearchQuery(result.title); // Set search to find the specific template
+        addNotification('info', `Viewing template: ${result.title}`);
+        break;
+      
+      case 'communication':
+        // Navigate to history tab (communications) and highlight the specific communication
+        setActiveTab('history');
+        setCommunicationSearchQuery(result.title); // Set search to find the specific communication
+        addNotification('info', `Viewing communication: ${result.title}`);
+        break;
+      
+      default:
+        addNotification('info', `Selected: ${result.title}`);
+    }
+  };
 
   // Table column definitions
   const patientColumns: TableColumn<Patient>[] = [
@@ -1008,6 +1040,7 @@ function Dashboard() {
               <GlobalSearch
                 onSearch={search.performSearch}
                 onFiltersToggle={search.toggleAdvancedFilters}
+                onResultSelect={handleGlobalSearchResultSelect}
                 filters={search.filters}
                 hasActiveFilters={search.hasActiveFilters}
               />
