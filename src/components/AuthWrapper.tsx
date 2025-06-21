@@ -1,29 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AuthWrapperProps {
   children: React.ReactNode;
+  fallback?: React.ReactNode;
 }
 
-export default function AuthWrapper({ children }: AuthWrapperProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
-
-  useEffect(() => {
-    // Check if user is authenticated
-    const user = sessionStorage.getItem('user');
-    
-    if (user) {
-      setIsAuthenticated(true);
-    } else {
-      router.push('/login');
-    }
-    
-    setIsLoading(false);
-  }, [router]);
+export default function AuthWrapper({ children, fallback }: AuthWrapperProps) {
+  const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -37,7 +22,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   }
 
   if (!isAuthenticated) {
-    return null;
+    return fallback || null;
   }
 
   return <>{children}</>;

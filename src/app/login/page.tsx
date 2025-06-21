@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,13 +10,15 @@ import Logo from '@/components/ui/logo';
 import { Lock, User } from 'lucide-react';
 import { loginSchema } from '@/lib/validation';
 import { z } from 'zod';
+import { useAuth } from '@/contexts/AuthContext';
+import { withPublicRoute } from '@/components/withAuth';
 
 interface ValidationErrors {
   username?: string;
   password?: string;
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const [credentials, setCredentials] = useState({
     username: '',
     password: '',
@@ -25,6 +27,11 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { login } = useAuth();
+  
+  // Get redirect URL from query params
+  const redirectTo = searchParams?.get('redirect') || '/dashboard';
 
   const validateForm = () => {
     try {
@@ -65,22 +72,13 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Store user session (in a real app, you'd use proper session management)
-        sessionStorage.setItem('user', JSON.stringify(data.user));
-        router.push('/dashboard');
+      const success = await login(credentials);
+      
+      if (success) {
+        // Redirect to the intended page or dashboard
+        router.push(redirectTo);
       } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Login failed');
+        setError('Invalid username or password');
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -205,3 +203,25 @@ export default function LoginPage() {
     </div>
   );
 }
+
+// Wrapper component to handle Suspense for useSearchParams
+function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <Navigation />
+        <div className="flex items-center justify-center p-4 pt-20">
+          <div className="text-center">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+// Export with public route protection (redirects to dashboard if already authenticated)
+export default withPublicRoute(LoginPage);

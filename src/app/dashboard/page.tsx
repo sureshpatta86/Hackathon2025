@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import AuthWrapper from '@/components/AuthWrapper';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +16,7 @@ import type { Patient, Template, Communication, Analytics } from '@/types';
 import { GlobalSearch, AdvancedFilters } from '@/components/search';
 import { useAdvancedSearch } from '@/hooks/useAdvancedSearch';
 import { PaginatedTable, TableColumn } from '@/components/ui/PaginatedTable';
+import { withProtectedRoute } from '@/components/withAuth';
 
 interface PatientGroup {
   id: string;
@@ -37,7 +37,7 @@ interface PatientGroup {
   };
 }
 
-export default function Dashboard() {
+function Dashboard() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
@@ -917,10 +917,9 @@ export default function Dashboard() {
   }
 
   return (
-    <AuthWrapper>
-      <div className="min-h-screen bg-gray-50">
-        {/* Navigation */}
-        <Navigation variant="dashboard" />
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <Navigation variant="dashboard" />
         
         {/* Tab Navigation */}
         <div className="bg-white border-b">
@@ -1600,8 +1599,8 @@ export default function Dashboard() {
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <div className="grid grid-cols-7 gap-2 text-xs">
                         {analytics.dailyStats.slice(-7).map((day, index) => {
-                          const dayTotal = day.total || (day.sent + day.delivered + day.failed);
-                          const maxTotal = Math.max(...analytics.dailyStats.map(d => d.total || (d.sent + d.delivered + d.failed)), 1);
+                          const dayTotal = day.total || ((day.sent || 0) + (day.delivered || 0) + (day.failed || 0));
+                          const maxTotal = Math.max(...analytics.dailyStats.map(d => d.total || ((d.sent || 0) + (d.delivered || 0) + (d.failed || 0))), 1);
                           return (
                             <div key={index} className="text-center">
                               <div className="font-medium text-gray-600">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</div>
@@ -2089,6 +2088,8 @@ export default function Dashboard() {
         </div>
       )}
     </div>
-    </AuthWrapper>
   );
 }
+
+// Export with protected route
+export default withProtectedRoute(Dashboard);
