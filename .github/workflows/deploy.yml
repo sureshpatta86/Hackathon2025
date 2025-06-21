@@ -119,6 +119,8 @@ jobs:
           </system.webServer>
         </configuration>
         EOF
+      env:
+        DATABASE_URL: "file:./prisma/dev.db"
     
     - name: Login to Azure
       uses: azure/login@v1
