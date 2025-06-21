@@ -60,20 +60,29 @@ jobs:
         cp -r .next deploy/
         cp -r public deploy/
         cp -r prisma deploy/
+        cp -r scripts deploy/
+        cp -r src deploy/
         
         # Copy any additional config files
         cp tsconfig.json deploy/ || true
         cp next-env.d.ts deploy/ || true
         
-        # Install only production dependencies
+        # Install only production dependencies plus tsx for admin creation
         cd deploy
         npm ci --only=production --ignore-scripts
+        npm install tsx --save-dev
         
         # Regenerate Prisma client in deployment directory
         npx prisma generate
         
         # Create the SQLite database in the deployment directory
         touch prisma/dev.db
+        
+        # Run database migrations to ensure tables exist
+        npx prisma db push
+        
+        # Create admin user
+        npx tsx scripts/create-admin.ts
         
         # Create a web.config for Azure (optional but helpful)
         cat > web.config << 'EOF'
