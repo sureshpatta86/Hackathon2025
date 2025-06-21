@@ -48,6 +48,69 @@ jobs:
         NEXT_PUBLIC_APP_URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
         MESSAGING_MODE: ${{ secrets.MESSAGING_MODE }}
     
+    - name: Create deployment package
+      run: |
+        # Create a clean deployment directory
+        mkdir -p deploy
+        
+        # Copy essential files and directories for production
+        cp package.json deploy/
+        cp package-lock.json deploy/
+        cp next.config.ts deploy/
+        cp -r .next deploy/
+        cp -r public deploy/
+        cp -r prisma deploy/
+        
+        # Copy any additional config files
+        cp tsconfig.json deploy/ || true
+        cp next-env.d.ts deploy/ || true
+        
+        # Install only production dependencies
+        cd deploy
+        npm ci --only=production --ignore-scripts
+        
+        # Regenerate Prisma client in deployment directory
+        npx prisma generate
+        
+        # Create the SQLite database in the deployment directory
+        touch prisma/dev.db
+        
+        # Create a web.config for Azure (optional but helpful)
+        cat > web.config << 'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <configuration>
+          <system.webServer>
+            <handlers>
+              <add name="iisnode" path="server.js" verb="*" modules="iisnode"/>
+            </handlers>
+            <rewrite>
+              <rules>
+                <rule name="NodeInspector" patternSyntax="ECMAScript" stopProcessing="true">
+                  <match url="^server.js\/debug[\/]?" />
+                </rule>
+                <rule name="StaticContent">
+                  <action type="Rewrite" url="public{REQUEST_URI}"/>
+                </rule>
+                <rule name="DynamicContent">
+                  <conditions>
+                    <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="True"/>
+                  </conditions>
+                  <action type="Rewrite" url="server.js"/>
+                </rule>
+              </rules>
+            </rewrite>
+            <security>
+              <requestFiltering>
+                <hiddenSegments>
+                  <remove segment="bin"/>
+                </hiddenSegments>
+              </requestFiltering>
+            </security>
+            <httpErrors existingResponse="PassThrough" />
+          </system.webServer>
+        </configuration>
+        EOF
+    
     - name: Login to Azure
       uses: azure/login@v1
       with:
@@ -57,7 +120,7 @@ jobs:
       uses: azure/webapps-deploy@v3
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        package: .
+        package: ./deploy
     
     - name: Configure App Settings in Azure
       run: |
@@ -73,4 +136,12 @@ jobs:
           NEXT_PUBLIC_APP_URL="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net" \
           MESSAGING_MODE="${{ secrets.MESSAGING_MODE }}" \
           NODE_ENV="production" \
-          WEBSITE_RUN_FROM_PACKAGE="1"
+          SCM_DO_BUILD_DURING_DEPLOYMENT="false" \
+          WEBSITE_NODE_DEFAULT_VERSION="20.x"
+    
+    - name: Set startup command for Azure
+      run: |
+        az webapp config set \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name ${{ env.AZURE_WEBAPP_NAME }} \
+          --startup-file "npm start"
