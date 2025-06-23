@@ -14,7 +14,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: { username: string; password: string }) => Promise<boolean>;
+  login: (credentials: { username: string; password: string }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<boolean>;
 }
@@ -87,14 +87,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   // Login function
-  const login = async (credentials: { username: string; password: string }): Promise<boolean> => {
+  const login = async (credentials: { username: string; password: string }): Promise<{ success: boolean; error?: string }> => {
     try {
       // Only run on client side
       if (typeof window === 'undefined') {
-        return false;
+        return { success: false, error: 'Login not available on server side' };
       }
 
       setIsLoading(true);
+      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -117,13 +118,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         document.cookie = `user-session=${JSON.stringify(data.user)}; path=/; ${process.env.NODE_ENV === 'production' ? 'secure;' : ''} samesite=lax`;
         
-        return true;
+        return { success: true };
+      } else {
+        // Handle error response
+        const errorData = await response.json();
+        return { success: false, error: errorData.error || 'Login failed' };
       }
-      
-      return false;
     } catch (error) {
-      console.error('Login failed:', error);
-      return false;
+      console.error('Login failed with exception:', error);
+      return { success: false, error: 'Network error. Please try again.' };
     } finally {
       setIsLoading(false);
     }

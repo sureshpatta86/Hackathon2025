@@ -44,11 +44,14 @@ export function withAuth<P extends object>(
 
       // If authentication is not required and user is authenticated, 
       // redirect to dashboard (useful for login page)
-      if (!requireAuth && isAuthenticated) {
+      // Only redirect if the user is fully authenticated and not in a transitional state
+      if (!requireAuth && isAuthenticated && !isLoading && mounted) {
         // Check for redirect parameter in URL
         const urlParams = new URLSearchParams(window.location.search);
         const redirectPath = urlParams.get('redirect') || '/dashboard';
-        router.push(redirectPath);
+        
+        // Use replace instead of push to avoid login page in history
+        router.replace(redirectPath);
         return;
       }
 

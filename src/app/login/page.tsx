@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,6 @@ import { Lock, User } from 'lucide-react';
 import { loginSchema } from '@/lib/validation';
 import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
-import { withPublicRoute } from '@/components/withAuth';
 
 interface ValidationErrors {
   username?: string;
@@ -25,12 +25,29 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
-  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+  const [shouldRedirect, setShouldRedirect] = useState(false);
+  const { login, isAuthenticated } = useAuth();
+
   
   // Note: redirectTo is handled by withPublicRoute HOC
   
-  // Show loading if we're authenticated (about to redirect) or auth is loading
-  const showLoading = isLoading || (isAuthenticated && !authLoading);
+  // Show loading if we're in the process of submitting or about to redirect
+  const showLoading = isLoading || shouldRedirect;
+
+  // Only show redirect loading if we explicitly set it after successful login
+  if (shouldRedirect) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <Navigation />
+        <div className="flex items-center justify-center p-4 pt-20">
+          <div className="text-center">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Redirecting to dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const validateForm = () => {
     try {
@@ -56,8 +73,11 @@ function LoginForm() {
     if (validationErrors[field]) {
       setValidationErrors({ ...validationErrors, [field]: undefined });
     }
-    // Clear general error
-    if (error) setError('');
+    // DON'T auto-clear general error on input change - let user see the error
+    // if (error) {
+    //   console.log('Clearing error due to input change:', field, value);
+    //   setError('');
+    // }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,23 +88,25 @@ function LoginForm() {
     }
 
     setIsLoading(true);
-    setError('');
+    setError(''); // Clear any previous error
 
     try {
-      const success = await login(credentials);
+      const result = await login(credentials);
       
-      if (success) {
-        // Don't use router.push here, let the auth context handle the redirect
-        // This prevents the double-render issue
-        // The withPublicRoute HOC will automatically redirect once isAuthenticated becomes true
+      if (result.success) {
+        setIsLoading(false);
+        // Clear form on successful login
+        setCredentials({ username: '', password: '' });
+        setShouldRedirect(true);
       } else {
-        setError('Invalid username or password');
+        const errorMessage = result.error || 'Invalid username or password';
+        setIsLoading(false);
+        setError(errorMessage);
       }
     } catch (error) {
       console.error('Login error:', error);
-      setError('Something went wrong. Please try again.');
-    } finally {
       setIsLoading(false);
+      setError('Something went wrong. Please try again.');
     }
   };
 
@@ -160,9 +182,15 @@ function LoginForm() {
                 </div>
 
                 {/* Error Message */}
-                {error && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-600">{error}</p>
+                {error && error.trim() !== '' && (
+                  <div className="p-4 bg-red-100 border-2 border-red-400 rounded-lg mb-4 shadow-lg" data-testid="error-message">
+                    <div className="flex items-center">
+                      <div className="text-red-600 mr-3 text-lg">🚨</div>
+                      <div>
+                        <p className="text-red-800 font-bold text-sm">Login Failed</p>
+                        <p className="text-red-700 text-sm">{error}</p>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -206,8 +234,36 @@ function LoginForm() {
   );
 }
 
-// Wrapper component to handle Suspense for useSearchParams
+// Wrapper component to handle Suspense for useSearchParams and auth redirection
 function LoginPage() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  // Handle redirection for already authenticated users
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      // Only redirect if user is actually authenticated and not in the middle of a login attempt
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectPath = urlParams.get('redirect') || '/dashboard';
+      router.replace(redirectPath);
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  // Don't render the login form if user is authenticated
+  if (!isLoading && isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <Navigation />
+        <div className="flex items-center justify-center p-4 pt-20">
+          <div className="text-center">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Redirecting to dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -225,5 +281,5 @@ function LoginPage() {
   );
 }
 
-// Export with public route protection (redirects to dashboard if already authenticated)
-export default withPublicRoute(LoginPage);
+// Export the login page with built-in authentication redirect
+export default LoginPage;
