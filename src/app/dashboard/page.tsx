@@ -67,11 +67,11 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error fetching data:', error);
-      addNotification('error', 'Failed to load data');
+      // addNotification('error', 'Failed to load data'); // Removed to prevent dependency cycle
     } finally {
       setLoading(false);
     }
-  }, [addNotification]);
+  }, []); // Removed addNotification dependency
 
   const fetchTemplates = useCallback(async () => {
     console.log('🔄 fetchTemplates called - timestamp:', new Date().toISOString());
@@ -262,6 +262,7 @@ export default function Dashboard() {
   };
 
   const handleUpdateTemplate = async (data: TemplateFormData & { id: string }) => {
+    console.log('🔧 handleUpdateTemplate called for:', data.name);
     try {
       const response = await fetch('/api/templates', {
         method: 'PUT',
@@ -270,7 +271,9 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
+        console.log('✅ Template update API call successful');
         addNotification('success', 'Template updated successfully!');
+        console.log('📢 Notification added, calling fetchTemplates...');
         fetchTemplates(); // Refresh only templates
       } else {
         const error = await response.json();
