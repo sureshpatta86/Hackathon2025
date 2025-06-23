@@ -18,13 +18,11 @@ fi
 
 # Run database setup
 cd /home/site/wwwroot
-    npx prisma db push
-    
-    # Create admin user if it doesn't exist
-    npx tsx scripts/create-admin.ts || echo "Admin user creation failed or already exists"
-else
-    echo "✅ Database already exists"
-fi
+npx prisma db push
+
+# Create admin user if it doesn't exist
+echo "👤 Creating admin user..."
+npx tsx scripts/create-admin.ts || echo "Admin user creation failed or already exists"
 
 # Start the Next.js application
 echo "🎯 Starting Next.js application..."
