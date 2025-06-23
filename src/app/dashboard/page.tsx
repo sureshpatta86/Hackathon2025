@@ -41,6 +41,8 @@ export default function Dashboard() {
   const [addingTemplate, setAddingTemplate] = useState(false);
 
   const fetchData = useCallback(async () => {
+    console.log('🔄 fetchData called - timestamp:', new Date().toISOString());
+    console.trace('fetchData call stack');
     try {
       setLoading(true);
       const [patientsRes, templatesRes, communicationsRes] = await Promise.all([
@@ -72,6 +74,8 @@ export default function Dashboard() {
   }, [addNotification]);
 
   const fetchTemplates = useCallback(async () => {
+    console.log('🔄 fetchTemplates called - timestamp:', new Date().toISOString());
+    console.trace('fetchTemplates call stack');
     try {
       const response = await fetch('/api/templates');
       if (response.ok) {
