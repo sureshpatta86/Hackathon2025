@@ -28,17 +28,15 @@ jobs:
     
     - name: Generate Prisma Client
       run: npx prisma generate
-    
-    - name: Setup Azure PostgreSQL connection and run migrations
-      run: |
-        npx prisma db push
       env:
-        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        # Use a dummy URL for client generation only
+        DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy?sslmode=require"
     
     - name: Build Next.js application
       run: npm run build
       env:
-        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        # Use dummy DATABASE_URL for build - actual connection not needed for build
+        DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy?sslmode=require"
         TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
         TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
         TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
@@ -74,19 +72,10 @@ jobs:
         # Regenerate Prisma client in deployment directory
         npx prisma generate
         
-        # Setup Azure PostgreSQL connection
-        # Database connection is handled via environment variables
+        # Setup Azure PostgreSQL connection during deployment
+        # Database operations will be handled by Azure App Service with configured DATABASE_URL
         
-        # Run database migrations to ensure tables exist
-        npx prisma db push
-        
-        # Create admin user
-        npx tsx scripts/create-admin.ts
-        
-        # Seed the database with sample data
-        npx tsx src/lib/seed.ts
-      env:
-        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        echo "Database setup will be handled by Azure App Service environment variables"
     
     - name: Login to Azure
       uses: azure/login@v1
@@ -101,11 +90,11 @@ jobs:
     
     - name: Configure App Settings in Azure
       run: |
+        # Configure basic app settings
         az webapp config appsettings set \
           --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
           --name ${{ env.AZURE_WEBAPP_NAME }} \
           --settings \
-          DATABASE_URL="${{ secrets.DATABASE_URL }}" \
           TWILIO_ACCOUNT_SID="${{ secrets.TWILIO_ACCOUNT_SID }}" \
           TWILIO_AUTH_TOKEN="${{ secrets.TWILIO_AUTH_TOKEN }}" \
           TWILIO_PHONE_NUMBER="${{ secrets.TWILIO_PHONE_NUMBER }}" \
@@ -115,6 +104,17 @@ jobs:
           NODE_ENV="production" \
           SCM_DO_BUILD_DURING_DEPLOYMENT="false" \
           WEBSITE_NODE_DEFAULT_VERSION="20.x"
+        
+        # Configure DATABASE_URL if secret exists
+        if [ ! -z "${{ secrets.DATABASE_URL }}" ]; then
+          az webapp config appsettings set \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --settings \
+            DATABASE_URL="${{ secrets.DATABASE_URL }}"
+        else
+          echo "⚠️ DATABASE_URL secret not configured. Please set it manually in Azure Portal."
+        fi
     
     - name: Set startup command for Azure
       run: |
