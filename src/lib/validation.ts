@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// Custom cuid validation for Prisma-generated IDs
+const cuidRegex = /^c[a-z0-9]{24}$/;
+const cuidValidation = z.string().regex(cuidRegex, 'Invalid ID format');
+
 // Common validation schemas
 export const phoneNumberSchema = z.string()
   .min(10, 'Phone number must be at least 10 digits')
@@ -78,16 +82,16 @@ export const sendCommunicationSchema = z.object({
     .min(1, 'Message content is required')
     .max(1600, 'Message content must be at most 1600 characters'),
   phoneNumber: phoneNumberSchema.optional(),
-  templateId: z.string().uuid('Invalid template ID').optional(),
+  templateId: cuidValidation.optional(),
 });
 
 export const bulkCommunicationSchema = z.object({
-  patientIds: z.array(z.string().uuid()).min(1, 'At least one patient is required'),
+  patientIds: z.array(cuidValidation).min(1, 'At least one patient is required'),
   type: z.enum(['SMS', 'VOICE']),
   content: z.string()
     .min(1, 'Message content is required')
     .max(1600, 'Message content must be at most 1600 characters'),
-  templateId: z.string().uuid('Invalid template ID').optional(),
+  templateId: cuidValidation.optional(),
 });
 
 // Patient group validation schemas
@@ -100,16 +104,16 @@ export const createPatientGroupSchema = z.object({
     .optional(),
   color: z.string()
     .regex(/^#[0-9A-F]{6}$/i, 'Invalid color format'),
-  patientIds: z.array(z.string().uuid()).optional(),
+  patientIds: z.array(cuidValidation).optional(),
 });
 
 export const updatePatientGroupSchema = createPatientGroupSchema.extend({
-  id: z.string().uuid('Invalid group ID'),
+  id: cuidValidation,
 });
 
 // Appointment validation schemas
 export const createAppointmentSchema = z.object({
-  patientId: z.string().uuid('Invalid patient ID'),
+  patientId: cuidValidation,
   appointmentDate: z.string()
     .refine((date) => {
       const appointmentDate = new Date(date);
@@ -130,7 +134,7 @@ export const createAppointmentSchema = z.object({
 });
 
 export const updateAppointmentSchema = createAppointmentSchema.extend({
-  id: z.string().uuid('Invalid appointment ID'),
+  id: cuidValidation,
 });
 
 // Settings validation schemas
