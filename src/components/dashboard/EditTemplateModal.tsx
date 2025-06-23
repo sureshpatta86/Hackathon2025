@@ -37,8 +37,6 @@ export default function EditTemplateModal({
   updateTemplateAction,
   updatingTemplate
 }: EditTemplateModalProps) {
-  console.log('EditTemplateModal render - isOpen:', isOpen, 'template:', template?.name);
-  
   const [editTemplate, setEditTemplate] = useState({
     name: '',
     type: 'SMS' as 'SMS' | 'VOICE',

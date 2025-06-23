@@ -208,12 +208,11 @@ export default function TemplatesTab({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          alert(`Edit button clicked for ${template.name}`);
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
                           console.log('Edit button clicked for template:', template.name);
-                          console.log('Current editingTemplate state:', editingTemplate);
                           setEditingTemplate(template);
-                          console.log('Set editingTemplate to:', template.name);
                         }}
                       >
                         <Edit2 className="h-4 w-4" />
