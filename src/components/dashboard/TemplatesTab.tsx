@@ -86,11 +86,6 @@ export default function TemplatesTab({
     setShowAddModal(false);
   };
 
-  const handleEditTemplate = (template: Template) => {
-    console.log('Edit template clicked:', template.name);
-    setEditingTemplate(template);
-  };
-
   const handleUpdateTemplate = async (data: UpdateTemplateData) => {
     setUpdatingTemplate(true);
     try {
@@ -214,8 +209,11 @@ export default function TemplatesTab({
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          console.log('Edit button clicked - calling handleEditTemplate');
-                          handleEditTemplate(template);
+                          alert(`Edit button clicked for ${template.name}`);
+                          console.log('Edit button clicked for template:', template.name);
+                          console.log('Current editingTemplate state:', editingTemplate);
+                          setEditingTemplate(template);
+                          console.log('Set editingTemplate to:', template.name);
                         }}
                       >
                         <Edit2 className="h-4 w-4" />
