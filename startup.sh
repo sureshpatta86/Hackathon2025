@@ -7,17 +7,17 @@ echo "🚀 Starting HealthComm Azure deployment..."
 mkdir -p /home/site/wwwroot/data
 chmod 755 /home/site/wwwroot/data
 
-# Check if database exists, if not create it
-if [ ! -f "/home/site/wwwroot/data/dev.db" ]; then
-    echo "📊 Creating SQLite database..."
-    touch /home/site/wwwroot/data/dev.db
-    chmod 644 /home/site/wwwroot/data/dev.db
-    
-    # Set DATABASE_URL for this session
-    export DATABASE_URL="file:./data/dev.db"
-    
-    # Run database setup
-    cd /home/site/wwwroot
+# Check if database connection is available
+echo "📊 Connecting to Azure PostgreSQL database..."
+
+# DATABASE_URL should be set via Azure App Service configuration
+if [ -z "$DATABASE_URL" ]; then
+    echo "❌ DATABASE_URL environment variable is not set!"
+    exit 1
+fi
+
+# Run database setup
+cd /home/site/wwwroot
     npx prisma db push
     
     # Create admin user if it doesn't exist

@@ -2,7 +2,26 @@
 
 This directory contains multiple startup scripts to run the HealthComm Healthcare Communication System. Choose the method that works best for your operating system and preferences.
 
-## 📁 Available Startup Methods
+## �️ Database Migration to Azure PostgreSQL
+
+**IMPORTANT**: The application has been migrated from SQLite to Azure Database for PostgreSQL for better scalability and production readiness.
+
+### Quick Azure Setup:
+```bash
+# For macOS/Linux
+npm run azure:setup
+
+# For Windows
+npm run azure:setup-windows
+```
+
+### Manual Azure Setup:
+1. Follow the guide in `AZURE_POSTGRESQL_MIGRATION.md`
+2. Create your Azure Database for PostgreSQL instance
+3. Update your `.env.local` file with the connection string
+4. Run migration: `npm run db:setup`
+
+## �📁 Available Startup Methods
 
 ### 1. PowerShell Script (Windows) - `start.ps1` ⭐ **RECOMMENDED FOR WINDOWS**
 
@@ -173,7 +192,7 @@ The scripts automatically handle:
 - Or change port in next.config.ts
 
 **Database errors**
-- Delete `prisma/dev.db` file
+- Clear any cached database connections
 - Run with reset option: `.\start.ps1 -Reset`
 
 ## 🌐 Application URLs

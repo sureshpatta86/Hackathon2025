@@ -47,7 +47,7 @@ A comprehensive healthcare communication platform built with Next.js, Prisma, an
 
 - **Frontend**: Next.js 15.3.4, React 19, TypeScript, Tailwind CSS
 - **Backend**: Next.js API Routes, Server-side validation
-- **Database**: SQLite with Prisma ORM v5+
+- **Database**: Azure PostgreSQL with Prisma ORM v5+
 - **Communication**: Twilio SDK (SMS & Voice API)
 - **UI Components**: Custom components with Lucide React icons
 - **Styling**: Tailwind CSS with custom design system
@@ -102,7 +102,7 @@ Create a `.env` file in the root directory:
 
 ```env
 # Database
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://healthcomm_admin:password@healthcomm-db-server.postgres.database.azure.com:5432/healthcomm_db?sslmode=require"
 
 # Twilio Configuration (Get from https://console.twilio.com/)
 TWILIO_ACCOUNT_SID=your_account_sid_here
@@ -493,7 +493,7 @@ The application uses the following main entities:
 
 ## Security & Privacy
 
-- Patient data is stored securely in a local SQLite database
+- Patient data is stored securely in Azure PostgreSQL database
 - Phone numbers are validated and formatted consistently
 - Communication preferences are respected (SMS/Voice enabled flags)
 - All API routes include proper error handling and validation
@@ -519,7 +519,7 @@ The application uses the following main entities:
 
 1. **Twilio Authentication Error**: Verify your Account SID and Auth Token are correct
 2. **Phone Number Format**: Ensure phone numbers are in E.164 format (+1234567890)
-3. **Database Connection**: Make sure the SQLite database file has proper permissions
+3. **Database Connection**: Make sure the Azure PostgreSQL database connection is properly configured
 4. **Port Already in Use**: Change the port in package.json or kill the process using port 3000
 
 ### Error Codes

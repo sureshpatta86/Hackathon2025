@@ -1,7 +1,7 @@
 # GitHub Actions Deployment Setup for Azure
 
 ## Overview
-This guide will help you deploy your Next.js application with Prisma and SQLite to Azure Web App using GitHub Actions.
+This guide will help you deploy your Next.js application with Prisma and Azure PostgreSQL to Azure Web App using GitHub Actions.
 
 ## Prerequisites
 ✅ Azure Resource Group: `rg-hackathon-2025`
@@ -63,7 +63,7 @@ The GitHub Actions workflow (`.github/workflows/deploy.yml`) will:
 2. ✅ Set up Node.js 18.x
 3. ✅ Install dependencies with `npm ci`
 4. ✅ Generate Prisma client
-5. ✅ Create SQLite database and run migrations
+5. ✅ Setup Azure PostgreSQL database connection
 6. ✅ Build Next.js application
 7. ✅ Deploy to Azure Web App
 8. ✅ Configure environment variables in Azure

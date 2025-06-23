@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { 
             error: 'Database is in read-only mode. User creation is temporarily disabled in production. Please contact system administrator.',
-            details: 'The SQLite database is not writable in the current Azure deployment configuration.'
+            details: 'The database is not writable in the current deployment configuration.'
           },
           { status: 503 }
         );

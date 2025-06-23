@@ -34,7 +34,7 @@
 ### 🔧 **Technical Architecture**
 - **Frontend**: Next.js 15.3.4 with React 19 and TypeScript for type safety
 - **Backend**: Next.js API Routes with comprehensive REST API endpoints
-- **Database**: SQLite with Prisma ORM v5+ for rapid development and easy deployment
+- **Database**: Azure PostgreSQL with Prisma ORM v5+ for production scalability and reliability
 - **External APIs**: Twilio SDK for SMS and voice communications
 - **UI Framework**: Custom components with Lucide React icons and accessibility features
 - **Authentication**: Session-based authentication with secure login system
@@ -206,7 +206,7 @@ src/
 
 ### **Advanced Database Design**
 - **Prisma ORM v5+** for type-safe database operations with auto-completion
-- **SQLite** for development with easy PostgreSQL migration path
+- **Azure PostgreSQL** for production scalability and reliability
 - **Comprehensive Schema** with proper relationships and constraints
 - **Enum Types** for status tracking (PENDING, DELIVERED, FAILED)
 - **Cascade Deletes** for data integrity
@@ -352,7 +352,7 @@ npm run dev
 - **Cross-platform Compatibility**: Works on Windows, macOS, and Linux
 - **International Phone Support**: Automatic formatting for global phone numbers
 - **Real-time Analytics**: Live dashboards with delivery metrics and patient engagement
-- **Database Flexibility**: Easy migration from SQLite to PostgreSQL for production
+- **Database Scalability**: Azure PostgreSQL provides production-ready scalability and performance
 - **API-first Design**: RESTful APIs ready for mobile app integration
 
 ## 🏆 **Hackathon Value Proposition**
