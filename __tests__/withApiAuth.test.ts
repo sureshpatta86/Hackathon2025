@@ -1,5 +1,5 @@
-// Pure function for testing token validation logic (copied from withApiAuth for testing)
-function validateTokenTest(token: string): { valid: boolean; userId?: string; role?: string } {
+// Pure function for testing token validation logic
+function validateToken(token: string): { valid: boolean; userId?: string; role?: string } {
   if (!token || token.length < 10) {
     return { valid: false };
   }
@@ -14,15 +14,15 @@ function validateTokenTest(token: string): { valid: boolean; userId?: string; ro
   return { valid: false };
 }
 
-describe('validateToken logic tests', () => {
+describe('validateToken (pure logic)', () => {
   it('returns valid false for short token', () => {
-    expect(validateTokenTest('short')).toEqual({ valid: false });
+    expect(validateToken('short')).toEqual({ valid: false });
   });
   it('returns valid true for correct token', () => {
-    expect(validateTokenTest('12345:admin')).toEqual({ valid: true, userId: '12345', role: 'admin' });
+    expect(validateToken('12345:admin')).toEqual({ valid: true, userId: '12345', role: 'admin' });
   });
   it('returns valid false for malformed token', () => {
-    expect(validateTokenTest('user1')).toEqual({ valid: false });
+    expect(validateToken('user1')).toEqual({ valid: false });
   });
 });
 

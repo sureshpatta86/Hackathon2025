@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 
 // Simple JWT-like token validation
-function validateToken(token: string): { valid: boolean; userId?: string; role?: string } {
+export function validateToken(token: string): { valid: boolean; userId?: string; role?: string } {
   try {
     if (!token || token.length < 10) {
       return { valid: false };
