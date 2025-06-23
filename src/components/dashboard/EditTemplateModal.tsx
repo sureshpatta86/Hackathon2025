@@ -37,6 +37,8 @@ export default function EditTemplateModal({
   updateTemplateAction,
   updatingTemplate
 }: EditTemplateModalProps) {
+  console.log('EditTemplateModal render - isOpen:', isOpen, 'template:', template?.name);
+  
   const [editTemplate, setEditTemplate] = useState({
     name: '',
     type: 'SMS' as 'SMS' | 'VOICE',
@@ -45,6 +47,7 @@ export default function EditTemplateModal({
 
   // Update form when template changes
   useEffect(() => {
+    console.log('EditTemplateModal useEffect - template:', template);
     if (template) {
       setEditTemplate({
         name: template.name,

@@ -87,6 +87,7 @@ export default function TemplatesTab({
   };
 
   const handleEditTemplate = (template: Template) => {
+    console.log('Edit template clicked:', template.name);
     setEditingTemplate(template);
   };
 
@@ -209,20 +210,25 @@ export default function TemplatesTab({
                     </div>
                     <div className="flex space-x-2 ml-4">
                       <Button
+                        type="button"
                         size="sm"
                         variant="outline"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
+                        onClick={() => {
+                          console.log('Edit button clicked - calling handleEditTemplate');
                           handleEditTemplate(template);
                         }}
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button
+                        type="button"
                         size="sm"
                         variant="danger"
-                        onClick={() => handleDeleteTemplate(template)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDeleteTemplate(template);
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
