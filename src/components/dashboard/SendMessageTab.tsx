@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, Textarea } from '@/components/ui/form';
-import { Send } from 'lucide-react';
+import { Send, AlertTriangle } from 'lucide-react';
 
 interface Patient {
   id: string;
@@ -26,6 +26,7 @@ interface Template {
 interface SendMessageTabProps {
   patients: Patient[];
   templates: Template[];
+  settings: { messagingMode: string; twilioConfigured: boolean } | null;
   sendMessageAction: (data: {
     patientId: string;
     type: 'SMS' | 'VOICE';
@@ -37,7 +38,8 @@ interface SendMessageTabProps {
 
 export default function SendMessageTab({ 
   patients, 
-  templates, 
+  templates,
+  settings,
   sendMessageAction, 
   sending 
 }: SendMessageTabProps) {
@@ -71,6 +73,25 @@ export default function SendMessageTab({
   };
 
   return (
+    <div className="space-y-4">
+
+      {/* Configuration Warning */}
+      {settings?.messagingMode === 'live' && !settings?.twilioConfigured && (
+        <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <AlertTriangle className="h-5 w-5 text-amber-500 mr-3 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-semibold text-amber-900 mb-1">
+                ⚠️ Configuration Required
+              </h3>
+              <p className="text-sm text-amber-700">
+                Live mode is enabled but Twilio credentials are not configured. Messages will be simulated until configuration is complete.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center">
@@ -141,9 +162,13 @@ export default function SendMessageTab({
           variant="primary"
           className="w-full"
         >
-          {sending ? 'Sending...' : 'Send Message'}
+          {sending ? 
+            (settings?.messagingMode === 'demo' ? '🔄 Simulating...' : '📤 Sending...') : 
+            (settings?.messagingMode === 'demo' ? '🎭 Simulate Message' : '📨 Send Message')
+          }
         </Button>
       </CardContent>
     </Card>
+    </div>
   );
 }

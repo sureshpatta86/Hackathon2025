@@ -18,6 +18,7 @@ const publicRoutes = [
   '/',
   '/login',
   '/api/auth/login',
+  '/api/health', // Health check endpoint should be public
   '/api/webhooks/twilio' // Webhook endpoints should be public
 ];
 

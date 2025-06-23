@@ -6,9 +6,16 @@ const isTwilioConfigured =
 
 export const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
 
+// Function to check if we should use live mode
+function isLiveMode() {
+  const messagingMode = process.env.MESSAGING_MODE || 'demo';
+  console.log(`[MESSAGING] Current mode: ${messagingMode.toUpperCase()}, Twilio configured: ${isTwilioConfigured}`);
+  return messagingMode === 'live' && isTwilioConfigured;
+}
+
 // Function to get Twilio client when needed
 async function getTwilioClient() {
-  if (!isTwilioConfigured) {
+  if (!isTwilioConfigured || !isLiveMode()) {
     return null;
   }
   
@@ -21,10 +28,12 @@ async function getTwilioClient() {
 
 // SMS sending function
 export async function sendSMS(to: string, body: string) {
+  const currentMode = process.env.MESSAGING_MODE || 'demo';
   const twilioClient = await getTwilioClient();
   
-  if (!twilioClient || !TWILIO_PHONE_NUMBER) {
-    console.warn('Twilio not configured - SMS would be sent:', { to, body });
+  if (!twilioClient || !TWILIO_PHONE_NUMBER || currentMode === 'demo') {
+    console.log(`[${currentMode.toUpperCase()} MODE] Simulating SMS to:`, to);
+    console.log(`Message: ${body.substring(0, 100)}${body.length > 100 ? '...' : ''}`);
     return {
       success: true,
       sid: 'demo-sms-' + Math.random().toString(36).substr(2, 9),
@@ -34,12 +43,14 @@ export async function sendSMS(to: string, body: string) {
   }
 
   try {
+    console.log(`[LIVE MODE] Sending real SMS to ${to}: ${body.substring(0, 50)}...`);
     const message = await twilioClient.messages.create({
       body,
       from: TWILIO_PHONE_NUMBER,
       to,
     });
     
+    console.log('SMS sent successfully:', message.sid);
     return {
       success: true,
       sid: message.sid,
@@ -56,10 +67,12 @@ export async function sendSMS(to: string, body: string) {
 
 // Voice call function
 export async function makeVoiceCall(to: string, message: string) {
+  const currentMode = process.env.MESSAGING_MODE || 'demo';
   const twilioClient = await getTwilioClient();
   
-  if (!twilioClient || !TWILIO_PHONE_NUMBER) {
-    console.warn('Twilio not configured - Voice call would be made:', { to, message });
+  if (!twilioClient || !TWILIO_PHONE_NUMBER || currentMode === 'demo') {
+    console.log(`[${currentMode.toUpperCase()} MODE] Simulating voice call to:`, to);
+    console.log(`Message: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`);
     return {
       success: true,
       sid: 'demo-voice-' + Math.random().toString(36).substr(2, 9),
@@ -69,12 +82,14 @@ export async function makeVoiceCall(to: string, message: string) {
   }
 
   try {
+    console.log(`[LIVE MODE] Making real voice call to ${to}: ${message.substring(0, 50)}...`);
     const call = await twilioClient.calls.create({
       twiml: `<Response><Say voice="alice" rate="medium">${message}</Say></Response>`,
       from: TWILIO_PHONE_NUMBER,
       to,
     });
     
+    console.log('Voice call initiated successfully:', call.sid);
     return {
       success: true,
       sid: call.sid,

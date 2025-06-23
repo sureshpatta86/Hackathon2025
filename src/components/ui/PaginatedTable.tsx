@@ -43,6 +43,8 @@ export function PaginatedTable<T extends Record<string, unknown>>({
     if (!searchQuery.trim()) return data;
 
     const filtered = data.filter(item => {
+      const searchTerm = searchQuery.toLowerCase();
+      
       // For patient objects, search in specific fields
       if ('firstName' in item && 'lastName' in item && 'phoneNumber' in item) {
         const patient = item as Record<string, unknown> & {
@@ -51,7 +53,6 @@ export function PaginatedTable<T extends Record<string, unknown>>({
           phoneNumber: string;
           email?: string;
         };
-        const searchTerm = searchQuery.toLowerCase();
         const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
         
         return (
@@ -60,6 +61,32 @@ export function PaginatedTable<T extends Record<string, unknown>>({
           fullName.includes(searchTerm) ||
           patient.phoneNumber?.includes(searchTerm) ||
           patient.email?.toLowerCase().includes(searchTerm)
+        );
+      }
+      
+      // For communication objects with nested patient data
+      if ('patient' in item && typeof item.patient === 'object' && item.patient !== null) {
+        const comm = item as Record<string, unknown> & {
+          patient: {
+            firstName: string;
+            lastName: string;
+            phoneNumber: string;
+          };
+          type?: string;
+          content?: string;
+          status?: string;
+        };
+        
+        const fullName = `${comm.patient.firstName} ${comm.patient.lastName}`.toLowerCase();
+        
+        return (
+          comm.patient.firstName?.toLowerCase().includes(searchTerm) ||
+          comm.patient.lastName?.toLowerCase().includes(searchTerm) ||
+          fullName.includes(searchTerm) ||
+          comm.patient.phoneNumber?.includes(searchTerm) ||
+          comm.type?.toLowerCase().includes(searchTerm) ||
+          comm.content?.toLowerCase().includes(searchTerm) ||
+          comm.status?.toLowerCase().includes(searchTerm)
         );
       }
       
@@ -155,7 +182,10 @@ export function PaginatedTable<T extends Record<string, unknown>>({
                       colSpan={columns.length + (actions ? 1 : 0)}
                       className="px-6 py-12 text-center text-gray-500"
                     >
-                      {emptyMessage}
+                      {data.length > 0 && searchQuery.trim() 
+                        ? `No results found for "${searchQuery}". Showing 0 of ${data.length} items.`
+                        : emptyMessage
+                      }
                     </td>
                   </tr>
                 )}

@@ -110,3 +110,13 @@ export interface TemplateFormData {
   type: 'SMS' | 'VOICE';
   content: string;
 }
+
+export interface User {
+  id: string;
+  username: string;
+  role: 'admin' | 'user';
+  email?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  [key: string]: unknown;
+}

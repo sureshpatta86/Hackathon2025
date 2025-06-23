@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,12 +25,12 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   
-  // Get redirect URL from query params
-  const redirectTo = searchParams?.get('redirect') || '/dashboard';
+  // Note: redirectTo is handled by withPublicRoute HOC
+  
+  // Show loading if we're authenticated (about to redirect) or auth is loading
+  const showLoading = isLoading || (isAuthenticated && !authLoading);
 
   const validateForm = () => {
     try {
@@ -75,8 +74,9 @@ function LoginForm() {
       const success = await login(credentials);
       
       if (success) {
-        // Redirect to the intended page or dashboard
-        router.push(redirectTo);
+        // Don't use router.push here, let the auth context handle the redirect
+        // This prevents the double-render issue
+        // The withPublicRoute HOC will automatically redirect once isAuthenticated becomes true
       } else {
         setError('Invalid username or password');
       }
@@ -129,6 +129,7 @@ function LoginForm() {
                     onChange={(e) => handleInputChange('username', e.target.value)}
                     placeholder="Enter your username"
                     required
+                    disabled={showLoading}
                     className={`w-full ${validationErrors.username ? 'border-red-500' : ''}`}
                     autoComplete="username"
                   />
@@ -149,6 +150,7 @@ function LoginForm() {
                     onChange={(e) => handleInputChange('password', e.target.value)}
                     placeholder="Enter your password"
                     required
+                    disabled={showLoading}
                     className={`w-full ${validationErrors.password ? 'border-red-500' : ''}`}
                     autoComplete="current-password"
                   />
@@ -167,14 +169,14 @@ function LoginForm() {
                 {/* Submit Button */}
                 <Button
                   type="submit"
-                  disabled={isLoading || !credentials.username || !credentials.password}
+                  disabled={showLoading || !credentials.username || !credentials.password}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
                   variant="primary"
                 >
-                  {isLoading ? (
+                  {showLoading ? (
                     <div className="flex items-center justify-center">
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                      Signing In...
+                      {isAuthenticated ? 'Redirecting...' : 'Signing In...'}
                     </div>
                   ) : (
                     'Sign In'

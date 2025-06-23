@@ -56,9 +56,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         ?.split('=')[1];
 
       if (storedUser && authToken) {
-        const user = JSON.parse(storedUser);
-        console.log('Restored user from sessionStorage:', user);
-        setUser(user);
+        setUser(JSON.parse(storedUser));
         return true;
       }
 
@@ -70,7 +68,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (response.ok) {
         const userData = await response.json();
-        console.log('Auth validation successful, received user data:', userData.user);
         setUser(userData.user);
         sessionStorage.setItem('user', JSON.stringify(userData.user));
         return true;
@@ -166,7 +163,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const initAuth = async () => {
       // Only run on client side
       if (typeof window !== 'undefined') {
-        await checkAuth();
+        // Don't auto-authenticate on login page - force user to login
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/login') {
+          await checkAuth();
+        }
       }
       setIsLoading(false);
     };

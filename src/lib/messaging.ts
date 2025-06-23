@@ -4,13 +4,16 @@ import twilio from 'twilio';
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
-const messagingMode = process.env.MESSAGING_MODE || 'demo';
 
 if (!accountSid || !authToken || !twilioPhoneNumber) {
   console.warn('Twilio credentials not configured. Messages will be simulated.');
 }
 
-const client = accountSid && authToken && messagingMode === 'live' ? twilio(accountSid, authToken) : null;
+// Dynamic client creation based on current messaging mode
+function getTwilioClient() {
+  const currentMode = process.env.MESSAGING_MODE || 'demo';
+  return accountSid && authToken && currentMode === 'live' ? twilio(accountSid, authToken) : null;
+}
 
 export interface MessageResult {
   success: boolean;
@@ -20,8 +23,11 @@ export interface MessageResult {
 }
 
 export async function sendSMS(phoneNumber: string, message: string): Promise<MessageResult> {
-  if (!client || !twilioPhoneNumber || messagingMode === 'demo') {
-    console.log(`[${messagingMode.toUpperCase()} MODE] Simulating SMS send to:`, phoneNumber);
+  const client = getTwilioClient();
+  const currentMode = process.env.MESSAGING_MODE || 'demo';
+  
+  if (!client || !twilioPhoneNumber || currentMode === 'demo') {
+    console.log(`[${currentMode.toUpperCase()} MODE] Simulating SMS send to:`, phoneNumber);
     console.log(`Message: ${message.substring(0, 100)}...`);
     // Simulate for demo
     return {
@@ -59,8 +65,11 @@ export async function sendSMS(phoneNumber: string, message: string): Promise<Mes
 }
 
 export async function makeVoiceCall(phoneNumber: string, message: string): Promise<MessageResult> {
-  if (!client || !twilioPhoneNumber || messagingMode === 'demo') {
-    console.log(`[${messagingMode.toUpperCase()} MODE] Simulating voice call to:`, phoneNumber);
+  const client = getTwilioClient();
+  const currentMode = process.env.MESSAGING_MODE || 'demo';
+  
+  if (!client || !twilioPhoneNumber || currentMode === 'demo') {
+    console.log(`[${currentMode.toUpperCase()} MODE] Simulating voice call to:`, phoneNumber);
     console.log(`Message: ${message.substring(0, 100)}...`);
     // Simulate for demo
     return {

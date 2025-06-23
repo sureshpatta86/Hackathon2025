@@ -193,8 +193,13 @@ export const ValidatedForm: React.FC<ValidatedFormProps> = ({
   errors = {},
   isLoading = false,
 }) => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault(); // Prevent default form submission behavior
+    onSubmit(e);
+  };
+
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <ValidationErrors errors={errors} />
       <fieldset disabled={isLoading} className="space-y-4">
         {children}

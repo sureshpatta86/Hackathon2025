@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/form';
@@ -34,6 +34,7 @@ interface TemplatesTabProps {
   updateTemplateAction: (data: UpdateTemplateData) => Promise<void>;
   deleteTemplateAction: (templateId: string, templateName: string) => Promise<void>;
   addingTemplate: boolean;
+  searchQuery?: string;
 }
 
 export default function TemplatesTab({ 
@@ -41,7 +42,8 @@ export default function TemplatesTab({
   addTemplateAction, 
   updateTemplateAction, 
   deleteTemplateAction,
-  addingTemplate
+  addingTemplate,
+  searchQuery = '' 
 }: TemplatesTabProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
@@ -49,37 +51,17 @@ export default function TemplatesTab({
   const [updatingTemplate, setUpdatingTemplate] = useState(false);
   const [filterType, setFilterType] = useState<'ALL' | 'SMS' | 'VOICE'>('ALL');
 
-  // Filter templates based on local search query and type filter using useMemo for performance
-  const { filteredTemplates, smsCount, voiceCount } = useMemo(() => {
-    // First, remove duplicates by ID
-    const uniqueTemplates = templates.reduce((acc, template) => {
-      const existingIndex = acc.findIndex(t => t.id === template.id);
-      if (existingIndex === -1) {
-        acc.push(template);
-      }
-      return acc;
-    }, [] as Template[]);
-
-    const filtered = uniqueTemplates.filter(template => {
-      const query = localSearchQuery;
-      const matchesSearch = !query || 
-        template.name.toLowerCase().includes(query.toLowerCase()) ||
-        template.content.toLowerCase().includes(query.toLowerCase());
-      
-      const matchesType = filterType === 'ALL' || template.type === filterType;
-      
-      return matchesSearch && matchesType;
-    });
-
-    const smsTemplates = uniqueTemplates.filter(t => t.type === 'SMS');
-    const voiceTemplates = uniqueTemplates.filter(t => t.type === 'VOICE');
-
-    return {
-      filteredTemplates: filtered,
-      smsCount: smsTemplates.length,
-      voiceCount: voiceTemplates.length
-    };
-  }, [templates, localSearchQuery, filterType]);
+  // Filter templates based on search query and type filter
+  const filteredTemplates = templates.filter(template => {
+    const query = searchQuery || localSearchQuery;
+    const matchesSearch = !query || 
+      template.name.toLowerCase().includes(query.toLowerCase()) ||
+      template.content.toLowerCase().includes(query.toLowerCase());
+    
+    const matchesType = filterType === 'ALL' || template.type === filterType;
+    
+    return matchesSearch && matchesType;
+  });
 
   const handleAddTemplate = async (data: NewTemplateData) => {
     await addTemplateAction(data);
@@ -94,15 +76,20 @@ export default function TemplatesTab({
     setUpdatingTemplate(true);
     try {
       await updateTemplateAction(data);
-      setEditingTemplate(null); // Close modal on success
+      setEditingTemplate(null);
     } finally {
       setUpdatingTemplate(false);
     }
   };
 
   const handleDeleteTemplate = async (template: Template) => {
-    await deleteTemplateAction(template.id, template.name);
+    if (window.confirm(`Are you sure you want to delete "${template.name}"?`)) {
+      await deleteTemplateAction(template.id, template.name);
+    }
   };
+
+  const smsTemplates = filteredTemplates.filter(t => t.type === 'SMS');
+  const voiceTemplates = filteredTemplates.filter(t => t.type === 'VOICE');
 
   return (
     <div className="space-y-6">
@@ -123,15 +110,16 @@ export default function TemplatesTab({
       </div>
 
       {/* Search and Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                type="text"
-                placeholder="Search templates by name or content..."
-                value={localSearchQuery}
+      {!searchQuery && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Search templates by name or content..."
+                  value={localSearchQuery}
                   onChange={(e) => setLocalSearchQuery(e.target.value)}
                   className="pl-10"
                 />
@@ -142,7 +130,7 @@ export default function TemplatesTab({
                   variant={filterType === 'ALL' ? 'primary' : 'outline'}
                   onClick={() => setFilterType('ALL')}
                 >
-                  All ({smsCount + voiceCount})
+                  All ({templates.length})
                 </Button>
                 <Button
                   size="sm"
@@ -150,7 +138,7 @@ export default function TemplatesTab({
                   onClick={() => setFilterType('SMS')}
                 >
                   <MessageSquare className="mr-1 h-3 w-3" />
-                  SMS ({smsCount})
+                  SMS ({smsTemplates.length})
                 </Button>
                 <Button
                   size="sm"
@@ -158,12 +146,13 @@ export default function TemplatesTab({
                   onClick={() => setFilterType('VOICE')}
                 >
                   <Phone className="mr-1 h-3 w-3" />
-                  Voice ({voiceCount})
+                  Voice ({voiceTemplates.length})
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
+      )}
 
       {/* Templates List */}
       <Card>
@@ -211,11 +200,7 @@ export default function TemplatesTab({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleEditTemplate(template);
-                        }}
+                        onClick={() => handleEditTemplate(template)}
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>

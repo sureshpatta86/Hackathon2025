@@ -45,7 +45,10 @@ export function withAuth<P extends object>(
       // If authentication is not required and user is authenticated, 
       // redirect to dashboard (useful for login page)
       if (!requireAuth && isAuthenticated) {
-        router.push('/dashboard');
+        // Check for redirect parameter in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectPath = urlParams.get('redirect') || '/dashboard';
+        router.push(redirectPath);
         return;
       }
 

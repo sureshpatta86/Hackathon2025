@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import { validateAdmin } from '@/lib/auth-utils';
 
 // GET /api/settings - Get current settings
 export async function GET() {
@@ -22,9 +23,18 @@ export async function GET() {
   }
 }
 
-// POST /api/settings - Update settings
+// POST /api/settings - Update settings (admin only)
 export async function POST(request: NextRequest) {
   try {
+    // Validate admin access
+    const { user: adminUser, error } = await validateAdmin(request);
+    if (error || !adminUser) {
+      return NextResponse.json(
+        { error: error || 'Admin access required' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { messagingMode } = body;
 
@@ -36,22 +46,32 @@ export async function POST(request: NextRequest) {
     }
 
     const envPath = path.join(process.cwd(), '.env');
-    let envContent = await fs.readFile(envPath, 'utf-8');
+    let envContent = '';
+    
+    try {
+      envContent = await fs.readFile(envPath, 'utf-8');
+    } catch {
+      // .env file doesn't exist, create it
+      envContent = '';
+    }
     
     // Update the messaging mode in .env file
     const messagingModeRegex = /MESSAGING_MODE=.*/;
     if (messagingModeRegex.test(envContent)) {
       envContent = envContent.replace(messagingModeRegex, `MESSAGING_MODE=${messagingMode}`);
     } else {
-      envContent += `\nMESSAGING_MODE=${messagingMode}`;
+      envContent += envContent.length > 0 ? `\nMESSAGING_MODE=${messagingMode}` : `MESSAGING_MODE=${messagingMode}`;
     }
     
     await fs.writeFile(envPath, envContent);
     
+    // Update the environment variable for the current process
+    process.env.MESSAGING_MODE = messagingMode;
+    
     return NextResponse.json({
       success: true,
       messagingMode,
-      message: `Messaging mode updated to ${messagingMode}. Restart the application to apply changes.`
+      message: `Messaging mode updated to ${messagingMode}. Changes applied immediately.`
     });
   } catch (error) {
     console.error('Error updating settings:', error);
