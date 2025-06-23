@@ -85,23 +85,40 @@ export async function POST(request: NextRequest) {
     const hashedPassword = bcrypt.hashSync(password, saltRounds);
 
     // Create user
-    const user = await db.user.create({
-      data: {
-        username,
-        password: hashedPassword,
-        role,
-      },
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-        // Exclude password
-      },
-    });
+    try {
+      const user = await db.user.create({
+        data: {
+          username,
+          password: hashedPassword,
+          role,
+        },
+        select: {
+          id: true,
+          username: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+          // Exclude password
+        },
+      });
 
-    return NextResponse.json(user, { status: 201 });
+      return NextResponse.json(user, { status: 201 });
+    } catch (dbError: unknown) {
+      // Handle specific database errors
+      const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
+      if (errorMessage.includes('readonly database')) {
+        return NextResponse.json(
+          { 
+            error: 'Database is in read-only mode. User creation is temporarily disabled in production. Please contact system administrator.',
+            details: 'The SQLite database is not writable in the current Azure deployment configuration.'
+          },
+          { status: 503 }
+        );
+      }
+      
+      // Re-throw other database errors
+      throw dbError;
+    }
   } catch (error) {
     console.error('Error creating user:', error);
     return NextResponse.json(

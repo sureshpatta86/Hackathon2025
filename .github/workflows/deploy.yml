@@ -57,6 +57,7 @@ jobs:
         cp package.json deploy/
         cp package-lock.json deploy/
         cp next.config.ts deploy/
+        cp startup.sh deploy/
         cp -r .next deploy/
         cp -r public deploy/
         cp -r prisma deploy/
@@ -75,14 +76,17 @@ jobs:
         # Regenerate Prisma client in deployment directory
         npx prisma generate
         
-        # Create the SQLite database in the deployment directory
-        touch prisma/dev.db
+        # Create the SQLite database in the deployment directory with proper permissions
+        mkdir -p data
+        touch data/dev.db
+        chmod 755 data
+        chmod 644 data/dev.db
         
         # Run database migrations to ensure tables exist
-        npx prisma db push
+        DATABASE_URL="file:./data/dev.db" npx prisma db push
         
         # Create admin user
-        npx tsx scripts/create-admin.ts
+        DATABASE_URL="file:./data/dev.db" npx tsx scripts/create-admin.ts
         
         # Seed the database with sample data
         npx tsx src/lib/seed.ts
@@ -106,7 +110,7 @@ jobs:
           --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
           --name ${{ env.AZURE_WEBAPP_NAME }} \
           --settings \
-          DATABASE_URL="file:./prisma/dev.db" \
+          DATABASE_URL="file:./data/dev.db" \
           TWILIO_ACCOUNT_SID="${{ secrets.TWILIO_ACCOUNT_SID }}" \
           TWILIO_AUTH_TOKEN="${{ secrets.TWILIO_AUTH_TOKEN }}" \
           TWILIO_PHONE_NUMBER="${{ secrets.TWILIO_PHONE_NUMBER }}" \
@@ -122,4 +126,4 @@ jobs:
         az webapp config set \
           --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
           --name ${{ env.AZURE_WEBAPP_NAME }} \
-          --startup-file "npm start"
+          --startup-file "./startup.sh"
