@@ -29,18 +29,16 @@ jobs:
     - name: Generate Prisma Client
       run: npx prisma generate
     
-    - name: Create SQLite database and run migrations
+    - name: Setup Azure PostgreSQL connection and run migrations
       run: |
-        mkdir -p prisma
-        touch prisma/dev.db
         npx prisma db push
       env:
-        DATABASE_URL: "file:./prisma/dev.db"
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
     
     - name: Build Next.js application
       run: npm run build
       env:
-        DATABASE_URL: "file:./prisma/dev.db"
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
         TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
         TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
         TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
@@ -76,22 +74,19 @@ jobs:
         # Regenerate Prisma client in deployment directory
         npx prisma generate
         
-        # Create the SQLite database in the deployment directory with proper permissions
-        mkdir -p data
-        touch data/dev.db
-        chmod 755 data
-        chmod 644 data/dev.db
+        # Setup Azure PostgreSQL connection
+        # Database connection is handled via environment variables
         
         # Run database migrations to ensure tables exist
-        DATABASE_URL="file:./data/dev.db" npx prisma db push
+        npx prisma db push
         
         # Create admin user
-        DATABASE_URL="file:./data/dev.db" npx tsx scripts/create-admin.ts
+        npx tsx scripts/create-admin.ts
         
         # Seed the database with sample data
         npx tsx src/lib/seed.ts
       env:
-        DATABASE_URL: "file:./prisma/dev.db"
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
     
     - name: Login to Azure
       uses: azure/login@v1
@@ -110,7 +105,7 @@ jobs:
           --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
           --name ${{ env.AZURE_WEBAPP_NAME }} \
           --settings \
-          DATABASE_URL="file:./data/dev.db" \
+          DATABASE_URL="${{ secrets.DATABASE_URL }}" \
           TWILIO_ACCOUNT_SID="${{ secrets.TWILIO_ACCOUNT_SID }}" \
           TWILIO_AUTH_TOKEN="${{ secrets.TWILIO_AUTH_TOKEN }}" \
           TWILIO_PHONE_NUMBER="${{ secrets.TWILIO_PHONE_NUMBER }}" \

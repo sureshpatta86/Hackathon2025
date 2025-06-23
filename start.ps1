@@ -166,8 +166,7 @@ function Reset-Application {
     Remove-Item "package-lock.json" -ErrorAction SilentlyContinue
     
     Write-ColorOutput "Removing database..." $Yellow
-    Remove-Item "prisma/dev.db" -ErrorAction SilentlyContinue
-    Remove-Item "prisma/dev.db-journal" -ErrorAction SilentlyContinue
+    # Remove old database files are no longer needed with Azure PostgreSQL
     
     Write-ColorOutput "✓ Application reset completed" $Green
 }

@@ -236,7 +236,7 @@ main() {
     # Handle reset option
     if [ "$RESET" = true ]; then
         print_color $YELLOW "Resetting application..."
-        rm -rf node_modules package-lock.json prisma/dev.db prisma/dev.db-journal
+        rm -rf node_modules package-lock.json
         print_color $GREEN "✓ Application reset completed"
     fi
     

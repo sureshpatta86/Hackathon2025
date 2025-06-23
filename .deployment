@@ -1,0 +1,30 @@
+# Azure App Service Deployment Configuration
+# This file configures the build and deployment process for Azure App Service
+
+version: 1.0
+
+applicationStack:
+  name: "node"
+  version: "20"
+
+build:
+  commands:
+    - echo "Installing dependencies..."
+    - npm ci
+    - echo "Generating Prisma client..."
+    - npx prisma generate
+    - echo "Building application..."
+    - npm run build
+
+appSettings:
+  - name: WEBSITE_NODE_DEFAULT_VERSION
+    value: "20.x"
+  - name: SCM_DO_BUILD_DURING_DEPLOYMENT
+    value: "true"
+  - name: ENABLE_ORYX_BUILD
+    value: "true"
+  - name: PRE_BUILD_COMMAND
+    value: "npx prisma generate"
+
+startup:
+  command: "npm start"
