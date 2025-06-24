@@ -4,8 +4,8 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   roots: ['<rootDir>'],
   transform: {
-    '^.+\\.(ts|tsx)$': 'babel-jest',
-    '^.+\\.(js|jsx)$': 'babel-jest',
+    '^.+\\.(ts|tsx)$': ['babel-jest', { configFile: './babel.test.config.js' }],
+    '^.+\\.(js|jsx)$': ['babel-jest', { configFile: './babel.test.config.js' }],
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
