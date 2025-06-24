@@ -45,13 +45,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const envPath = path.join(process.cwd(), '.env');
+    const envPath = path.join(process.cwd(), '.env.local');
     let envContent = '';
     
     try {
       envContent = await fs.readFile(envPath, 'utf-8');
     } catch {
-      // .env file doesn't exist, create it
+      // .env.local file doesn't exist, create it
       envContent = '';
     }
     

@@ -120,3 +120,16 @@ export interface User {
   updatedAt?: string;
   [key: string]: unknown;
 }
+
+export interface PatientGroup {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  _count: {
+    patients: number;
+  };
+  patients: Array<{
+    patient: Patient;
+  }>;
+}
