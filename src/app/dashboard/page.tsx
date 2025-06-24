@@ -21,6 +21,7 @@ import type {
   Communication, 
   Analytics, 
   AppSettings,
+  PatientGroup,
   PatientFormData, 
   TemplateFormData 
 } from '@/types';
@@ -29,6 +30,7 @@ export default function Dashboard() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
+  const [patientGroups, setPatientGroups] = useState<PatientGroup[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,10 +47,11 @@ export default function Dashboard() {
     console.trace('fetchData call stack');
     try {
       setLoading(true);
-      const [patientsRes, templatesRes, communicationsRes] = await Promise.all([
+      const [patientsRes, templatesRes, communicationsRes, patientGroupsRes] = await Promise.all([
         fetch('/api/patients'),
         fetch('/api/templates'),
         fetch('/api/communications'),
+        fetch('/api/patient-groups'),
       ]);
 
       if (patientsRes.ok) {
@@ -65,31 +68,23 @@ export default function Dashboard() {
         const communicationsData = await communicationsRes.json();
         setCommunications(communicationsData);
       }
+
+      if (patientGroupsRes.ok) {
+        const patientGroupsData = await patientGroupsRes.json();
+        setPatientGroups(patientGroupsData);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
-      // addNotification('error', 'Failed to load data'); // Removed to prevent dependency cycle
+      // Don't show notification on initial load failure to prevent dependency cycle
     } finally {
       setLoading(false);
     }
-  }, []); // Removed addNotification dependency
-
-  const fetchTemplates = useCallback(async () => {
-    console.log('🔄 fetchTemplates called - timestamp:', new Date().toISOString());
-    console.trace('fetchTemplates call stack');
-    try {
-      const response = await fetch('/api/templates');
-      if (response.ok) {
-        const templatesData = await response.json();
-        setTemplates(templatesData);
-      }
-    } catch (error) {
-      console.error('Error fetching templates:', error);
-    }
-  }, []);
+  }, []); // Remove addNotification dependency to prevent re-fetching
 
   useEffect(() => {
+    // Only fetch data once when component mounts
     fetchData();
-  }, [fetchData]);
+  }, [fetchData]); // Add fetchData back as dependency
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -147,7 +142,7 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
-        await response.json(); // Parse response
+        const newCommunication = await response.json(); // Parse response
         const isDemo = settings?.messagingMode === 'demo' || !settings?.twilioConfigured;
         
         if (isDemo) {
@@ -156,7 +151,8 @@ export default function Dashboard() {
           addNotification('success', `📨 ${data.type} sent successfully!`);
         }
         
-        fetchData(); // Refresh data
+        // Update only communications data instead of refetching everything
+        setCommunications(prevCommunications => [newCommunication, ...prevCommunications]);
       } else {
         const error = await response.json();
         addNotification('error', `Error: ${error.error}`);
@@ -179,8 +175,10 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
+        const newPatient = await response.json();
         addNotification('success', 'Patient added successfully!');
-        fetchData(); // Refresh patient list
+        // Update local state instead of refetching all data - add new patient at the top
+        setPatients(currentPatients => [newPatient, ...currentPatients]);
       } else {
         const error = await response.json();
         addNotification('error', `Error: ${error.error}`);
@@ -202,8 +200,14 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
+        const updatedPatient = await response.json();
         addNotification('success', 'Patient updated successfully!');
-        fetchData(); // Refresh patient list
+        // Update local state instead of refetching all data
+        setPatients(currentPatients => 
+          currentPatients.map(patient => 
+            patient.id === data.id ? updatedPatient : patient
+          )
+        );
       } else {
         const error = await response.json();
         addNotification('error', `Error: ${error.error}`);
@@ -226,7 +230,10 @@ export default function Dashboard() {
 
       if (response.ok) {
         addNotification('success', 'Patient deleted successfully!');
-        fetchData(); // Refresh patient list
+        // Update local state instead of refetching all data
+        setPatients(currentPatients => 
+          currentPatients.filter(patient => patient.id !== patientId)
+        );
       } else {
         const error = await response.json();
         addNotification('error', `Error: ${error.error}`);
@@ -247,8 +254,10 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
+        const newTemplate = await response.json();
+        // Update local state instead of refetching all data
+        setTemplates(prevTemplates => [newTemplate, ...prevTemplates]);
         addNotification('success', 'Template added successfully!');
-        fetchTemplates(); // Refresh only templates
       } else {
         const error = await response.json();
         addNotification('error', `Error: ${error.error}`);
@@ -271,10 +280,15 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
+        const updatedTemplate = await response.json();
         console.log('✅ Template update API call successful');
+        // Update local state instead of refetching all data
+        setTemplates(prevTemplates => 
+          prevTemplates.map(template => 
+            template.id === data.id ? updatedTemplate : template
+          )
+        );
         addNotification('success', 'Template updated successfully!');
-        console.log('📢 Notification added, calling fetchTemplates...');
-        fetchTemplates(); // Refresh only templates
       } else {
         const error = await response.json();
         addNotification('error', `Error: ${error.error}`);
@@ -296,8 +310,11 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
+        // Update local state instead of refetching all data
+        setTemplates(prevTemplates => 
+          prevTemplates.filter(template => template.id !== templateId)
+        );
         addNotification('success', 'Template deleted successfully!');
-        fetchTemplates(); // Refresh only templates
       } else {
         const error = await response.json();
         addNotification('error', `Error: ${error.error}`);
@@ -434,6 +451,8 @@ export default function Dashboard() {
           {activeTab === 'groups' && (
             <PatientGroupsTab 
               patients={patients}
+              patientGroups={patientGroups}
+              setPatientGroupsAction={setPatientGroups}
             />
           )}
 

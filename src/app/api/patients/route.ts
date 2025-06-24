@@ -86,6 +86,22 @@ export async function POST(request: NextRequest) {
         voiceEnabled: voiceEnabled ?? true,
         medicalNotes: medicalNotes || null,
       },
+      include: {
+        appointments: {
+          orderBy: { appointmentDate: 'desc' },
+          take: 5,
+        },
+        communications: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+        _count: {
+          select: {
+            appointments: true,
+            communications: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json(patient, { status: 201 });
@@ -162,6 +178,22 @@ export async function PUT(request: NextRequest) {
         smsEnabled: smsEnabled ?? true,
         voiceEnabled: voiceEnabled ?? true,
         medicalNotes: medicalNotes || null,
+      },
+      include: {
+        appointments: {
+          orderBy: { appointmentDate: 'desc' },
+          take: 5,
+        },
+        communications: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+        _count: {
+          select: {
+            appointments: true,
+            communications: true,
+          },
+        },
       },
     });
 

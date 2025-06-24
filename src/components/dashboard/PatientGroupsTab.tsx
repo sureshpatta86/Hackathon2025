@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/form';
@@ -8,37 +8,19 @@ import { useNotification } from '@/components/ui/notification';
 import { Plus, Edit2, Trash2, Users, MessageSquare, Search } from 'lucide-react';
 import AddGroupModal from './AddGroupModal';
 import EditGroupModal from './EditGroupModal';
-
-interface Patient {
-  id: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  email?: string;
-  smsEnabled: boolean;
-  voiceEnabled: boolean;
-}
-
-interface PatientGroup {
-  id: string;
-  name: string;
-  description?: string;
-  color: string;
-  _count: {
-    patients: number;
-  };
-  patients: Array<{
-    patient: Patient;
-  }>;
-}
+import type { Patient, PatientGroup } from '@/types';
 
 interface PatientGroupsTabProps {
   patients: Patient[];
+  patientGroups: PatientGroup[];
+  setPatientGroupsAction: React.Dispatch<React.SetStateAction<PatientGroup[]>>;
 }
 
-export default function PatientGroupsTab({ patients }: PatientGroupsTabProps) {
-  const [patientGroups, setPatientGroups] = useState<PatientGroup[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function PatientGroupsTab({ 
+  patients, 
+  patientGroups, 
+  setPatientGroupsAction 
+}: PatientGroupsTabProps) {
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [addingGroup, setAddingGroup] = useState(false);
   const [updatingGroup, setUpdatingGroup] = useState(false);
@@ -48,28 +30,6 @@ export default function PatientGroupsTab({ patients }: PatientGroupsTabProps) {
   const [editingGroup, setEditingGroup] = useState<PatientGroup | null>(null);
 
   const { addNotification } = useNotification();
-
-  // Load patient groups
-  const fetchPatientGroups = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/patient-groups');
-      if (response.ok) {
-        const groups = await response.json();
-        setPatientGroups(groups);
-      } else {
-        console.error('Failed to fetch patient groups');
-      }
-    } catch (error) {
-      console.error('Error fetching patient groups:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchPatientGroups();
-  }, [fetchPatientGroups]);
 
   // Filter groups based on local search query
   const filteredGroups = patientGroups.filter(group => {
@@ -104,8 +64,9 @@ export default function PatientGroupsTab({ patients }: PatientGroupsTabProps) {
       const result = await response.json();
 
       if (response.ok) {
+        const newGroup = result;
+        setPatientGroupsAction(prevGroups => [newGroup, ...prevGroups]);
         setShowAddModal(false);
-        fetchPatientGroups();
         addNotification('success', 'Patient group created successfully');
       } else {
         addNotification('error', result.error || 'Failed to create patient group');
@@ -140,8 +101,13 @@ export default function PatientGroupsTab({ patients }: PatientGroupsTabProps) {
       const result = await response.json();
 
       if (response.ok) {
+        const updatedGroup = result;
+        setPatientGroupsAction(prevGroups => 
+          prevGroups.map(group => 
+            group.id === data.id ? updatedGroup : group
+          )
+        );
         setEditingGroup(null);
-        fetchPatientGroups();
         addNotification('success', 'Patient group updated successfully');
       } else {
         addNotification('error', result.error || 'Failed to update patient group');
@@ -172,8 +138,10 @@ export default function PatientGroupsTab({ patients }: PatientGroupsTabProps) {
       const result = await response.json();
 
       if (response.ok) {
+        setPatientGroupsAction(prevGroups => 
+          prevGroups.filter(group => group.id !== groupId)
+        );
         addNotification('success', 'Patient group deleted successfully');
-        await fetchPatientGroups();
       } else {
         addNotification('error', result.error || 'Failed to delete patient group');
       }
@@ -182,24 +150,6 @@ export default function PatientGroupsTab({ patients }: PatientGroupsTabProps) {
       addNotification('error', 'Failed to delete patient group');
     }
   };
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <Card key={index}>
-            <CardContent className="p-6">
-              <div className="animate-pulse space-y-4">
-                <div className="h-6 bg-gray-200 rounded w-1/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
