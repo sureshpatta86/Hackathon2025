@@ -18,14 +18,15 @@ Read more: https://nextjs.org/docs/messages/babel-font-loader-conflict
 - `next/font` requires SWC to function properly, causing a conflict
 
 ## Solution
-Separated the Babel configuration to be used only for testing:
+Completely removed the conflicting Babel configuration for Next.js builds:
 
-### 1. Renamed babel config
-- Moved `babel.config.js` → `babel.test.config.js`
-- This prevents Next.js from automatically detecting and using Babel
+### 1. Removed babel.config.js
+- **Deleted** `babel.config.js` to allow Next.js to use SWC by default
+- This prevents Next.js from auto-detecting Babel and switching from SWC
 
-### 2. Updated Jest configuration
-Modified `jest.config.js` to explicitly use the test-specific babel config:
+### 2. Maintained Jest functionality  
+- **Kept** `babel.test.config.js` for Jest test transpilation
+- **Updated** `jest.config.js` to explicitly reference the test-specific config:
 
 ```javascript
 transform: {
@@ -35,13 +36,26 @@ transform: {
 ```
 
 ### 3. Result
-- Next.js now uses SWC for compilation (enabling `next/font` to work)
-- Jest still uses Babel for test transpilation
-- Both build and tests work correctly
+- ✅ Next.js uses SWC for compilation (enabling `next/font` to work)
+- ✅ Jest uses Babel for test transpilation via explicit config
+- ✅ No more babel/SWC conflict in builds
+- ✅ GitHub Actions builds succeed
 
 ## Files Modified
-- `babel.config.js` → `babel.test.config.js` (renamed)
+- `babel.config.js` ➜ **DELETED** (removed completely)
+- `babel.test.config.js` (kept for Jest testing)
 - `jest.config.js` (updated to reference specific babel config)
+
+## Git Commands Used
+```bash
+# Remove the conflicting file
+rm babel.config.js
+
+# Commit and push the fix
+git add .
+git commit -m "fix: Remove babel.config.js to resolve next/font SWC conflict"
+git push
+```
 
 ## Verification
 - ✅ `npm run build` - Successful production build
