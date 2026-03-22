@@ -31,20 +31,17 @@ const mockSessionStorage = (() => {
 
 Object.defineProperty(window, 'sessionStorage', {
   value: mockSessionStorage
-});
-
-// Mock document.cookie
 
 const mockPush = jest.fn();
 
-const TEST_PASSWORD = process.env.TEST_PASSWORD || 'test-password';
+const TEST_PASSWORD = process.env.TEST_AUTH_PASSWORD || 'test-password';
 
 // Test component that uses the auth context
 function TestComponent() {
   const { user, isAuthenticated, isLoading, login, logout, checkAuth } = useAuth();
+});
 
-// Test component that uses the auth context
-function TestComponent() {
+    <div>
       <div data-testid="user">{user ? JSON.stringify(user) : 'null'}</div>
       <div data-testid="isAuthenticated">{isAuthenticated.toString()}</div>
       <div data-testid="isLoading">{isLoading.toString()}</div>
@@ -52,6 +49,9 @@ function TestComponent() {
         Login
       </button>
       <button onClick={logout}>Logout</button>
+      <div data-testid="user">{user ? JSON.stringify(user) : 'null'}</div>
+      <div data-testid="isAuthenticated">{isAuthenticated.toString()}</div>
+      <div data-testid="isLoading">{isLoading.toString()}</div>
       <button onClick={() => login({ username: 'test', password: 'password' })}>
         Login
       </button>
