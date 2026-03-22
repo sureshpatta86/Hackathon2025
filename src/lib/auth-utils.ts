@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 
+const AUTH_TOKEN_COOKIE_NAME = process.env.AUTH_TOKEN_COOKIE_NAME || 'auth-token';
+
 // Simple JWT-like token validation
 export function validateToken(token: string): { valid: boolean; userId?: string; role?: string } {
   try {
@@ -22,12 +24,12 @@ export function validateToken(token: string): { valid: boolean; userId?: string;
   } catch (error) {
     console.error('Token validation error:', error);
     return { valid: false };
-  }
-}
-
 export async function validateUser(request: NextRequest) {
   // Get token from cookies or Authorization header
-  const token = request.cookies.get('auth-token')?.value ||
+  const token = request.cookies.get(AUTH_TOKEN_COOKIE_NAME)?.value ||
+                request.headers.get('authorization')?.replace('Bearer ', '');
+  
+  if (!token) {
                 request.headers.get('authorization')?.replace('Bearer ', '');
   
   if (!token) {
