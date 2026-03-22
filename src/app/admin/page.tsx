@@ -385,12 +385,12 @@ function AdminPanelPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Password {editingUser && '(leave blank to keep current)'}
                     </label>
-                    <Input
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      required={!editingUser}
-                      placeholder="Enter password"
+              <div>
+                <h2 className="text-2xl font-bold text-white">
+                  Welcome back, {currentUser?.username ? currentUser.username.charAt(0).toUpperCase() + currentUser.username.slice(1) : 'Administrator'}!
+                </h2>
+                <p className="text-purple-100 mt-1">
+                  Manage your users and oversee system operations from here.
                     />
                   </div>
 
