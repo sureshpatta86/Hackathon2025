@@ -30,33 +30,31 @@
 - ✅ **Test Users Script**: Creates sample admin and user accounts
 - ✅ **Database Schema**: Supports user roles (admin/user)
 
+## 🧪 Testing Guide
 
 ### Test Accounts
 ```
-Use credentials provided via environment variables or a secure secret manager.
-
 Admin Account:
 - Username: testadmin
-- Password: [set via environment/secret manager]
+### Test Accounts
+```
+Admin Account:
+- Username: testadmin
+- Password: set via local environment/setup
 
 User Accounts:
-- Username: user1, Password: [set via environment/secret manager]
-- Username: user2, Password: [set via environment/secret manager]
+- Username: user1, Password: set via local environment/setup
+- Username: user2, Password: set via local environment/setup
 ```
 
 ### Test Scenarios
-### Test Scenarios
-
+3. Navigate to dashboard - should see "Admin Panel" link in navigation
 #### 1. Admin Login & Access
 1. Go to `/login`
-2. Login with admin credentials (testadmin/admin123)
+2. Login with admin credentials configured in your local environment/setup
 3. Navigate to dashboard - should see "Admin Panel" link in navigation
 4. Click "Admin Panel" - should access `/admin` successfully
 
-#### 2. User Management (Admin Only)
-1. **View Users**: See all users in paginated table
-2. **Search Users**: Use search to filter users
-3. **Create User**: Click "Add User" button, fill form, submit
 4. **Edit User**: Click edit icon, modify user details, save
 5. **Delete User**: Click delete icon (should not work for admin users)
 
@@ -70,7 +68,7 @@ User Accounts:
 
 #### 4. User Access & Redirects
 1. **Logged-in User Test**:
-   - Login with user credentials (user1/password123)
+   - Login with user credentials configured in your local environment/setup
    - Should NOT see "Admin Panel" in navigation
    - Direct access to `/admin` should redirect to `/dashboard`
    - Cannot access user management APIs
