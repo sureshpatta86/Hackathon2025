@@ -1,18 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { db } from '@/lib/db';
 import { loginSchema, validateRequestBody } from '@/lib/validation';
 
-// Simple token generation (replace with proper JWT in production)
-function generateToken(userId: string, role: string): string {
+// Simple signed token generation using environment secret
+function generateToken(userId: string, role: string, secret: string): string {
   const timestamp = Date.now();
-  // In production, use proper JWT with secret key and expiration
-  return `${userId}:${role}:${timestamp}`;
+  const payload = `${userId}:${role}:${timestamp}`;
+  const signature = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
+  return `${payload}:${signature}`;
 }
 
 // POST /api/auth/login - User authentication
 export async function POST(request: NextRequest) {
   try {
+    const authTokenSecret = process.env.AUTH_TOKEN_SECRET;
+    if (!authTokenSecret) {
+      throw new Error('AUTH_TOKEN_SECRET is not configured');
+    }
+
     // Validate request body
     const validation = await validateRequestBody(request, loginSchema);
     if (!validation.success) {
@@ -28,13 +38,13 @@ export async function POST(request: NextRequest) {
 
     // Check if user exists and password matches
     // Use bcrypt to compare the hashed password
-    if (!user || !bcrypt.compareSync(password, user.password)) {
-      return NextResponse.json(
-        { error: 'Invalid username or password' },
-        { status: 401 }
-      );
     }
 
+    // Generate authentication token
+    const token = generateToken(user.id, user.role, authTokenSecret);
+    
+    // Return user data (excluding password)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     // Generate authentication token
     const token = generateToken(user.id, user.role);
     
