@@ -25,13 +25,13 @@ This guide will help you migrate from SQLite to Azure Database for PostgreSQL.
 
 ### Using Azure CLI:
 ```bash
-# Create resource group
-az group create --name healthcomm-rg --location centralindia
-
-# Create PostgreSQL server
-az postgres flexible-server create \
-  --resource-group healthcomm-rg \
   --name healthcomm-db-server \
+  --location centralindia \
+  --admin-user healthcomm_admin \
+  --admin-password "$AZURE_POSTGRES_PASSWORD" \
+  --version 15 \
+  --sku-name Standard_B1ms \
+  --storage-size 32
   --location centralindia \
   --admin-user healthcomm_admin \
   --admin-password YourStrongPassword123! \
@@ -69,21 +69,21 @@ az postgres flexible-server firewall-rule create \
   --name healthcomm-db-server \
   --rule-name AllowMyIP \
   --start-ip-address YOUR_PUBLIC_IP \
-  --end-ip-address YOUR_PUBLIC_IP
-```
-
-## Step 3: Get Connection String
-
-```bash
-az postgres flexible-server show-connection-string \
   --server-name healthcomm-db-server \
   --admin-user healthcomm_admin \
-  --admin-password YourStrongPassword123! \
+  --admin-password "$AZURE_POSTGRES_PASSWORD" \
   --database-name healthcomm_db
 ```
 
 ## Step 4: Update Environment Variables
 
+Create a `.env.local` file in your project root:
+
+```env
+DATABASE_URL="postgresql://healthcomm_admin:${AZURE_POSTGRES_PASSWORD}@healthcomm-db-server.postgres.database.azure.com:5432/healthcomm_db?sslmode=require"
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_PHONE_NUMBER=your_twilio_phone_number
 Create a `.env.local` file in your project root:
 
 ```env
