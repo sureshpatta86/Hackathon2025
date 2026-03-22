@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const AUTH_USER_EMAIL_DOMAIN = process.env.AUTH_USER_EMAIL_DOMAIN || 'localhost';
+
 interface AuthenticatedUser {
   id: string;
   username: string;
@@ -47,14 +49,14 @@ export async function getAuthenticatedUser(request: NextRequest): Promise<Authen
     
     const validation = validateToken(token);
     
-    if (!validation.valid) {
-      return null;
-    }
-    
-    // In a real app, fetch user details from database
     return {
       id: validation.userId!,
       username: `user_${validation.userId}`,
+      role: validation.role!,
+      email: `user_${validation.userId}@${AUTH_USER_EMAIL_DOMAIN}`
+    };
+    
+  } catch (error) {
       role: validation.role!,
       email: `user_${validation.userId}@example.com`
     };
