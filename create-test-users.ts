@@ -7,21 +7,30 @@ async function main() {
   try {
     console.log('Creating test users...');
 
+    const userPassword = process.env.TEST_USER_PASSWORD;
+    const adminPassword = process.env.TEST_ADMIN_PASSWORD;
+
+    if (!userPassword || !adminPassword) {
+      throw new Error(
+        'Missing required environment variables: TEST_USER_PASSWORD and/or TEST_ADMIN_PASSWORD'
+      );
+    }
+
     // Create test users with different roles
     const testUsers = [
       {
         username: 'user1',
-        password: 'password123',
+        password: userPassword,
         role: 'user'
       },
       {
         username: 'user2',
-        password: 'password123',
+        password: userPassword,
         role: 'user'
       },
       {
         username: 'testadmin',
-        password: 'admin123',
+        password: adminPassword,
         role: 'admin'
       }
     ];
