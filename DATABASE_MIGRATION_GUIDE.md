@@ -31,7 +31,7 @@ npm run azure:setup-windows
 1. Azure CLI installed and configured
 2. Active Azure subscription
 3. Node.js 20.x or higher
-     --resource-group healthcomm-rg \
+
      --name healthcomm-db-server \
      --location eastus \
      --admin-user healthcomm_admin \
