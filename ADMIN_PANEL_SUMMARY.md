@@ -36,25 +36,25 @@
 ```
 Admin Account:
 - Username: testadmin
+- Password: admin123
 ### Test Accounts
 ```
 Admin Account:
 - Username: testadmin
-- Password: set via local environment/setup
+- Password: [set via environment variable or secret manager]
 
 User Accounts:
-- Username: user1, Password: set via local environment/setup
-- Username: user2, Password: set via local environment/setup
+- Username: user1, Password: [set via environment variable or secret manager]
+- Username: user2, Password: [set via environment variable or secret manager]
 ```
 
 ### Test Scenarios
-3. Navigate to dashboard - should see "Admin Panel" link in navigation
+4. Click "Admin Panel" - should access `/admin` successfully
 #### 1. Admin Login & Access
 1. Go to `/login`
-2. Login with admin credentials configured in your local environment/setup
+2. Login with admin credentials configured for your environment
 3. Navigate to dashboard - should see "Admin Panel" link in navigation
 4. Click "Admin Panel" - should access `/admin` successfully
-
 4. **Edit User**: Click edit icon, modify user details, save
 5. **Delete User**: Click delete icon (should not work for admin users)
 
@@ -67,13 +67,13 @@ User Accounts:
 4. **API Protection**: All user management API calls require admin authentication
 
 #### 4. User Access & Redirects
+
+#### 4. User Access & Redirects
 1. **Logged-in User Test**:
-   - Login with user credentials configured in your local environment/setup
+   - Login with user credentials configured for your environment
    - Should NOT see "Admin Panel" in navigation
    - Direct access to `/admin` should redirect to `/dashboard`
    - Cannot access user management APIs
-
-2. **Non-authenticated User Test**:
    - Go directly to `/admin` without logging in
    - Should redirect to `/login` page
    - After login, behavior depends on user role
