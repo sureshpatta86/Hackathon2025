@@ -1,11 +1,5 @@
 import { z } from 'zod';
 
-const messagingModes = (
-  process.env.ALLOWED_MESSAGING_MODES?.split(',').map((mode) => mode.trim()).filter(Boolean) ??
-  ['demo', 'live']
-) as [string, ...string[]];
-const defaultMessagingModes = ['demo', 'live'] as const;
-
 // Custom cuid validation for Prisma-generated IDs
 const cuidRegex = /^c[a-z0-9]{24}$/;
 const cuidValidation = z.string().regex(cuidRegex, 'Invalid ID format');
@@ -129,15 +123,13 @@ export const createAppointmentSchema = z.object({
   type: z.string()
     .min(1, 'Appointment type is required')
     .max(100, 'Appointment type must be at most 100 characters'),
-
-// Settings validation schemas
-export const updateSettingsSchema = z.object({
-  messagingMode: messagingModes.length >= 2
-    ? z.enum(messagingModes)
-    : z.enum(defaultMessagingModes),
-  twilioAccountSid: z.string()
-    .min(1, 'Twilio Account SID is required for live mode')
+  notes: z.string()
+    .max(1000, 'Notes must be at most 1000 characters')
     .optional(),
+  reminderEnabled: z.boolean().default(true),
+  reminderMinutes: z.number()
+    .min(15, 'Reminder must be at least 15 minutes before')
+    .max(10080, 'Reminder cannot be more than 7 days before')
     .default(60),
 });
 
@@ -148,17 +140,17 @@ export const updateAppointmentSchema = createAppointmentSchema.extend({
 // Settings validation schemas
 export const updateSettingsSchema = z.object({
   messagingMode: z.enum(['demo', 'live']),
-  twilioAccountSid: z.string()
-    .min(1, 'Twilio Account SID is required for live mode')
+// Settings validation schemas
+export const updateSettingsSchema = z.object({
+  messagingMode: z.enum(['demo', 'live']),
+  messagingAccountSid: z.string()
+    .min(1, 'Messaging Account SID is required for live mode')
     .optional(),
-  twilioAuthToken: z.string()
-    .min(1, 'Twilio Auth Token is required for live mode')
+  messagingAuthToken: z.string()
+    .min(1, 'Messaging Auth Token is required for live mode')
     .optional(),
   twilioPhoneNumber: phoneNumberSchema.optional(),
 });
-
-// Analytics validation schemas
-export const analyticsQuerySchema = z.object({
   dateRange: z.string()
     .regex(/^\d+$/, 'Date range must be a number of days')
     .transform((val) => parseInt(val))
