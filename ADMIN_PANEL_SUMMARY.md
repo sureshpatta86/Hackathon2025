@@ -30,19 +30,21 @@
 - ✅ **Test Users Script**: Creates sample admin and user accounts
 - ✅ **Database Schema**: Supports user roles (admin/user)
 
-## 🧪 Testing Guide
 
 ### Test Accounts
 ```
+Use credentials provided via environment variables or a secure secret manager.
+
 Admin Account:
 - Username: testadmin
-- Password: admin123
+- Password: [set via environment/secret manager]
 
 User Accounts:
-- Username: user1, Password: password123
-- Username: user2, Password: password123
+- Username: user1, Password: [set via environment/secret manager]
+- Username: user2, Password: [set via environment/secret manager]
 ```
 
+### Test Scenarios
 ### Test Scenarios
 
 #### 1. Admin Login & Access
