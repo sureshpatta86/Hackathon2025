@@ -32,13 +32,13 @@ npm run azure:setup-windows
 2. Active Azure subscription
 3. Node.js 20.x or higher
 
-#### Steps:
-
-1. **Create Azure Resources:**
-   ```bash
-   # Login to Azure
-   az login
-   
+     --name healthcomm-db-server \
+     --location eastus \
+     --admin-user healthcomm_admin \
+     --admin-password "$AZURE_POSTGRES_ADMIN_PASSWORD" \
+     --version 15 \
+     --sku-name Standard_B1ms \
+     --storage-size 32 \
    # Create resource group
    az group create --name healthcomm-rg --location eastus
    
@@ -62,13 +62,13 @@ npm run azure:setup-windows
    ```
 
 2. **Configure Firewall:**
-   ```bash
-   # Allow Azure services
-   az postgres flexible-server firewall-rule create \
-     --resource-group healthcomm-rg \
-     --name healthcomm-db-server \
-     --rule-name AllowAzureServices \
-     --start-ip-address 0.0.0.0 \
+3. **Update Environment Variables:**
+   Create `.env.local` file:
+   ```env
+   DATABASE_URL="postgresql://healthcomm_admin:${AZURE_POSTGRES_ADMIN_PASSWORD}@healthcomm-db-server.postgres.database.azure.com:5432/healthcomm_db?sslmode=require"
+   TWILIO_ACCOUNT_SID=your_twilio_account_sid
+   TWILIO_AUTH_TOKEN=your_twilio_auth_token
+   TWILIO_PHONE_NUMBER=your_twilio_phone_number
      --end-ip-address 0.0.0.0
    
    # Allow your IP

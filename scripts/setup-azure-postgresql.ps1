@@ -5,7 +5,7 @@ param(
     [string]$ResourceGroup = "healthcomm-rg",
     [string]$ServerName = "healthcomm-db-server",
     [string]$DatabaseName = "healthcomm_db",
-    [string]$AdminUser = "healthcomm_admin",
+    [string]$AdminUser = $(if ($env:AZURE_POSTGRES_ADMIN_USER) { $env:AZURE_POSTGRES_ADMIN_USER } else { "postgres_admin" }),
     [string]$Location = "centralindia",
     [string]$SkuName = "Standard_B1ms",
     [string]$StorageSize = "32",

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const AUTH_TOKEN_COOKIE_NAME =
+  process.env.AUTH_TOKEN_COOKIE_NAME || 'auth-token';
+
 // Define protected routes that require authentication
 const protectedRoutes = [
   '/dashboard',
@@ -30,13 +33,13 @@ export function middleware(request: NextRequest) {
     pathname.startsWith(route)
   );
   
-  // Check if the route is public
-  const isPublicRoute = publicRoutes.some(route => 
-    pathname === route || pathname.startsWith(route)
   );
   
   // Get authentication token from cookies or headers
-  const token = request.cookies.get('auth-token')?.value ||
+  const token = request.cookies.get(AUTH_TOKEN_COOKIE_NAME)?.value ||
+                request.headers.get('authorization')?.replace('Bearer ', '');
+  
+  // Get user session from cookies (for client-side auth)
                 request.headers.get('authorization')?.replace('Bearer ', '');
   
   // Get user session from cookies (for client-side auth)

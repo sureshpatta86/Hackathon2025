@@ -140,17 +140,17 @@ export const updateAppointmentSchema = createAppointmentSchema.extend({
 // Settings validation schemas
 export const updateSettingsSchema = z.object({
   messagingMode: z.enum(['demo', 'live']),
-  twilioAccountSid: z.string()
-    .min(1, 'Twilio Account SID is required for live mode')
+// Settings validation schemas
+export const updateSettingsSchema = z.object({
+  messagingMode: z.enum(['demo', 'live']),
+  messagingAccountSid: z.string()
+    .min(1, 'Messaging Account SID is required for live mode')
     .optional(),
-  twilioAuthToken: z.string()
-    .min(1, 'Twilio Auth Token is required for live mode')
+  messagingAuthToken: z.string()
+    .min(1, 'Messaging Auth Token is required for live mode')
     .optional(),
   twilioPhoneNumber: phoneNumberSchema.optional(),
 });
-
-// Analytics validation schemas
-export const analyticsQuerySchema = z.object({
   dateRange: z.string()
     .regex(/^\d+$/, 'Date range must be a number of days')
     .transform((val) => parseInt(val))

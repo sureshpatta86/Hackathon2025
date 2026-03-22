@@ -3,6 +3,12 @@
 import bcrypt from 'bcryptjs';
 import { db } from '../src/lib/db';
 
+const adminPassword = process.env.ADMIN_PASSWORD;
+
+if (!adminPassword) {
+  throw new Error('ADMIN_PASSWORD environment variable is required');
+}
+
 async function createAdminUser() {
   console.log('👤 Creating admin user...');
 
@@ -14,25 +20,25 @@ async function createAdminUser() {
 
     if (existingUser) {
       console.log('✅ Admin user already exists');
-      return;
-    }
 
     // Create admin user with hashed password
     const saltRounds = 10;
-    const hashedPassword = bcrypt.hashSync('admin', saltRounds);
+    const hashedPassword = bcrypt.hashSync(adminPassword, saltRounds);
     
+    await db.user.create({
+      data: {
     await db.user.create({
       data: {
         username: 'admin',
         password: hashedPassword,
         role: 'admin',
-      },
-    });
 
     console.log('✅ Admin user created successfully!');
     console.log('📝 Username: admin');
-    console.log('📝 Password: admin');
+    console.log('📝 Password: [provided via ADMIN_PASSWORD]');
     
+  } catch (error) {
+    console.error('❌ Error creating admin user:', error);
   } catch (error) {
     console.error('❌ Error creating admin user:', error);
   }

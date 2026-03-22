@@ -3,6 +3,13 @@ import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { validateAdmin } from '@/lib/auth-utils';
 
+const DEFAULT_BCRYPT_SALT_ROUNDS = 10;
+const envSaltRounds = Number.parseInt(process.env.BCRYPT_SALT_ROUNDS || '', 10);
+const BCRYPT_SALT_ROUNDS =
+  Number.isInteger(envSaltRounds) && envSaltRounds > 0
+    ? envSaltRounds
+    : DEFAULT_BCRYPT_SALT_ROUNDS;
+
 // GET /api/users - Get all users (admin only)
 export async function GET(request: NextRequest) {
   try {
@@ -63,14 +70,13 @@ export async function POST(request: NextRequest) {
     // Validate role
     if (!['admin', 'user'].includes(role)) {
       return NextResponse.json(
-        { error: 'Invalid role. Must be either "admin" or "user"' },
-        { status: 400 }
-      );
     }
 
-    // Check if username already exists
-    const existingUser = await db.user.findUnique({
-      where: { username },
+    // Hash password
+    const hashedPassword = bcrypt.hashSync(password, BCRYPT_SALT_ROUNDS);
+
+    // Create user
+    try {
     });
 
     if (existingUser) {

@@ -459,9 +459,9 @@ export default function SettingsTab({
                     </p>
                     <div className="bg-gray-900 text-green-400 p-3 rounded-lg text-xs font-mono">
                       <div>MESSAGING_MODE=live</div>
-                      <div>TWILIO_ACCOUNT_SID=your_account_sid</div>
-                      <div>TWILIO_AUTH_TOKEN=your_auth_token</div>
-                      <div>TWILIO_PHONE_NUMBER=your_twilio_number</div>
+                      <div>TWILIO_ACCOUNT_SID=$&#123;TWILIO_ACCOUNT_SID&#125;</div>
+                      <div>TWILIO_AUTH_TOKEN=$&#123;TWILIO_AUTH_TOKEN&#125;</div>
+                      <div>TWILIO_PHONE_NUMBER=$&#123;TWILIO_PHONE_NUMBER&#125;</div>
                     </div>
                   </div>
                 </div>

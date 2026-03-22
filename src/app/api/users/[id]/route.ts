@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { validateAdmin } from '@/lib/auth-utils';
 
+const BCRYPT_SALT_ROUNDS = Number.parseInt(process.env.BCRYPT_SALT_ROUNDS || '10', 10) || 10;
+
 // GET /api/users/[id] - Get a specific user (admin only)
 export async function GET(
   request: NextRequest,
@@ -111,14 +113,13 @@ export async function PUT(
     if (username) updateData.username = username;
     if (role) updateData.role = role;
     
+    
     // Hash password if provided
     if (password) {
-      const saltRounds = 10;
-      updateData.password = bcrypt.hashSync(password, saltRounds);
+      updateData.password = bcrypt.hashSync(password, BCRYPT_SALT_ROUNDS);
     }
 
     // Update user
-    const updatedUser = await db.user.update({
       where: { id },
       data: updateData,
       select: {

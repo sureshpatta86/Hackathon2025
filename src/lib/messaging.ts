@@ -1,18 +1,27 @@
 import twilio from 'twilio';
 
-// Initialize Twilio client
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+function getTwilioConfig() {
+  return {
+    accountSid: process.env.TWILIO_ACCOUNT_SID,
+    authToken: process.env.TWILIO_AUTH_TOKEN,
+    twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER
+  };
+}
 
-if (!accountSid || !authToken || !twilioPhoneNumber) {
+const initialConfig = getTwilioConfig();
+if (!initialConfig.accountSid || !initialConfig.authToken || !initialConfig.twilioPhoneNumber) {
   console.warn('Twilio credentials not configured. Messages will be simulated.');
 }
 
 // Dynamic client creation based on current messaging mode
 function getTwilioClient() {
   const currentMode = process.env.MESSAGING_MODE || 'demo';
+  const { accountSid, authToken } = getTwilioConfig();
   return accountSid && authToken && currentMode === 'live' ? twilio(accountSid, authToken) : null;
+}
+
+function getTwilioPhoneNumber() {
+  return getTwilioConfig().twilioPhoneNumber;
 }
 
 export interface MessageResult {
@@ -20,16 +29,17 @@ export interface MessageResult {
   messageId?: string;
   error?: string;
   status: 'DELIVERED' | 'FAILED' | 'PENDING';
-}
 
 export async function sendSMS(phoneNumber: string, message: string): Promise<MessageResult> {
   const client = getTwilioClient();
+  const twilioPhoneNumber = getTwilioPhoneNumber();
   const currentMode = process.env.MESSAGING_MODE || 'demo';
-  
+
   if (!client || !twilioPhoneNumber || currentMode === 'demo') {
     console.log(`[${currentMode.toUpperCase()} MODE] Simulating SMS send to:`, phoneNumber);
     console.log(`Message: ${message.substring(0, 100)}...`);
     // Simulate for demo
+    return {
     return {
       success: Math.random() > 0.1, // 90% success rate
       messageId: 'demo_' + Math.random().toString(36).substr(2, 9),
@@ -57,16 +67,17 @@ export async function sendSMS(phoneNumber: string, message: string): Promise<Mes
   } catch (error: unknown) {
     console.error('Failed to send SMS:', error);
     return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      status: 'FAILED'
-    };
-  }
-}
 
 export async function makeVoiceCall(phoneNumber: string, message: string): Promise<MessageResult> {
   const client = getTwilioClient();
+  const twilioPhoneNumber = getTwilioPhoneNumber();
   const currentMode = process.env.MESSAGING_MODE || 'demo';
+
+  if (!client || !twilioPhoneNumber || currentMode === 'demo') {
+    console.log(`[${currentMode.toUpperCase()} MODE] Simulating voice call to:`, phoneNumber);
+    console.log(`Message: ${message.substring(0, 100)}...`);
+    // Simulate for demo
+    return {
   
   if (!client || !twilioPhoneNumber || currentMode === 'demo') {
     console.log(`[${currentMode.toUpperCase()} MODE] Simulating voice call to:`, phoneNumber);

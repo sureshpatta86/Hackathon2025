@@ -103,12 +103,12 @@ Create a `.env` file in the root directory:
 ```env
 # Database
 DATABASE_URL="postgresql://healthcomm_admin:password@healthcomm-db-server.postgres.database.azure.com:5432/healthcomm_db?sslmode=require"
+```env
+# Database
+DATABASE_URL="postgresql://DB_USER:DB_PASSWORD@DB_HOST:5432/DB_NAME?sslmode=require"
 
 # Twilio Configuration (Get from https://console.twilio.com/)
 TWILIO_ACCOUNT_SID=your_account_sid_here
-TWILIO_AUTH_TOKEN=your_auth_token_here
-TWILIO_PHONE_NUMBER=+1234567890
-
 # Application Settings
 NEXT_PUBLIC_APP_NAME="HealthComm"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"

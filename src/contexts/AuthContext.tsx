@@ -42,19 +42,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Check authentication status
   const checkAuth = async (): Promise<boolean> => {
-    try {
-      // Only run on client side
-      if (typeof window === 'undefined') {
-        return false;
       }
 
       // First check sessionStorage for client-side persistence
       const storedUser = sessionStorage.getItem('user');
-      const authToken = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('auth-token='))
-        ?.split('=')[1];
+      const hasUserSession = document.cookie.split('; ').some(row => row.startsWith('user-session='));
 
+      if (storedUser && hasUserSession) {
+        setUser(JSON.parse(storedUser));
+        return true;
+      }
       if (storedUser && authToken) {
         setUser(JSON.parse(storedUser));
         return true;
@@ -85,15 +82,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return false;
     }
   };
-
-  // Login function
-  const login = async (credentials: { username: string; password: string }): Promise<{ success: boolean; error?: string }> => {
-    try {
-      // Only run on client side
-      if (typeof window === 'undefined') {
-        return { success: false, error: 'Login not available on server side' };
-      }
-
+        sessionStorage.setItem('user', JSON.stringify(data.user));
+        
+        // Set cookies for server-side validation
+        document.cookie = `user-session=${JSON.stringify(data.user)}; path=/; ${process.env.NODE_ENV === 'production' ? 'secure;' : ''} samesite=lax`;
+        
+        return { success: true };
       setIsLoading(true);
       
       const response = await fetch('/api/auth/login', {
@@ -116,13 +110,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (data.token) {
           document.cookie = `auth-token=${data.token}; path=/; ${process.env.NODE_ENV === 'production' ? 'secure;' : ''} samesite=lax`;
         }
-        document.cookie = `user-session=${JSON.stringify(data.user)}; path=/; ${process.env.NODE_ENV === 'production' ? 'secure;' : ''} samesite=lax`;
-        
-        return { success: true };
-      } else {
-        // Handle error response
-        const errorData = await response.json();
-        return { success: false, error: errorData.error || 'Login failed' };
+    sessionStorage.removeItem('user');
+    
+    // Clear cookies
+    document.cookie = 'user-session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    
+    // Navigate to login page
       }
     } catch (error) {
       console.error('Login failed with exception:', error);
