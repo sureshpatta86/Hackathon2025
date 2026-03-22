@@ -1,36 +1,35 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
+const user1Password = process.env.TEST_USER1_PASSWORD;
+const user2Password = process.env.TEST_USER2_PASSWORD;
+const adminPassword = process.env.TEST_ADMIN_PASSWORD;
+
+if (!user1Password || !user2Password || !adminPassword) {
+  throw new Error('Missing required test user passwords in environment variables: TEST_USER1_PASSWORD, TEST_USER2_PASSWORD, TEST_ADMIN_PASSWORD');
+}
+
 const prisma = new PrismaClient();
 
 async function main() {
   try {
     console.log('Creating test users...');
 
-    const testUserPassword = process.env.TEST_USER_PASSWORD;
-    const testAdminPassword = process.env.TEST_ADMIN_PASSWORD;
-
-    if (!testUserPassword || !testAdminPassword) {
-      throw new Error(
-        'Missing required environment variables: TEST_USER_PASSWORD and/or TEST_ADMIN_PASSWORD'
-      );
-    }
-
     // Create test users with different roles
     const testUsers = [
       {
         username: 'user1',
-        password: testUserPassword,
+        password: user1Password,
         role: 'user'
       },
       {
         username: 'user2',
-        password: testUserPassword,
+        password: user2Password,
         role: 'user'
       },
       {
         username: 'testadmin',
-        password: testAdminPassword,
+        password: adminPassword,
         role: 'admin'
       }
     ];
