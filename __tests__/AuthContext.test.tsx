@@ -3,8 +3,6 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 
-const TEST_PASSWORD = process.env.TEST_AUTH_PASSWORD || 'test-password';
-
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
@@ -36,11 +34,15 @@ Object.defineProperty(window, 'sessionStorage', {
 });
 
 // Mock document.cookie
-Object.defineProperty(document, 'cookie', {
-  writable: true,
-  value: ''
-});
 
+const mockPush = jest.fn();
+
+const TEST_PASSWORD = process.env.TEST_AUTH_PASSWORD || 'test-password';
+
+// Test component that uses the auth context
+function TestComponent() {
+  const { user, isAuthenticated, isLoading, login, logout, checkAuth } = useAuth();
+  
   return (
     <div>
       <div data-testid="user">{user ? JSON.stringify(user) : 'null'}</div>
@@ -50,9 +52,7 @@ Object.defineProperty(document, 'cookie', {
         Login
       </button>
       <button onClick={logout}>Logout</button>
-      <div data-testid="isAuthenticated">{isAuthenticated.toString()}</div>
-      <div data-testid="isLoading">{isLoading.toString()}</div>
-      <button onClick={() => login({ username: 'test', password: 'password' })}>
+    </div>
         Login
       </button>
       <button onClick={logout}>Logout</button>
