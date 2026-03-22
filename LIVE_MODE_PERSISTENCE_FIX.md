@@ -62,16 +62,16 @@ const envPath = path.join(process.cwd(), '.env.local');
 
 ### Environment File Structure
 ```
+### Environment File Structure
+```
 .env.local (development overrides)
 ├── MESSAGING_MODE=live (updated by API)
-├── TWILIO_ACCOUNT_SID=actual_value
-├── TWILIO_AUTH_TOKEN=actual_value
-└── TWILIO_PHONE_NUMBER=actual_value
+├── TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+├── TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+└── TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
 
 .env (base configuration)
 ├── Database URLs
-├── Auth secrets
-└── Other system variables
 ```
 
 ## Testing
